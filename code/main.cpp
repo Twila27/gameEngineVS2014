@@ -175,28 +175,28 @@ void loadScene(const char *sceneFile)
 
 void update(void)
 {	
-	/*
-	// move mesh instance
-	gMeshInstance.translation[0] += 0.003f;
-	if (gMeshInstance.translation[0] >= 1.0f) gMeshInstance.translation[0] = -1.0f;
-    */
-	
-	// scale mesh instance
-	static float dScale = 0.0005f;
-	float scale = gMeshInstance.T.scale[0];
-	scale += dScale;
-	if (scale > 1.25f) dScale = -0.0005f;
-	if (scale < 0.25f) dScale = 0.0005f;
-	gMeshInstance.setScale(glm::vec3(scale));
+	///*
+	//// move mesh instance
+	//gMeshInstance.translation[0] += 0.003f;
+	//if (gMeshInstance.translation[0] >= 1.0f) gMeshInstance.translation[0] = -1.0f;
+ //   */
+	//
+	//// scale mesh instance
+	//static float dScale = 0.0005f;
+	//float scale = gMeshInstance.T.scale[0];
+	//scale += dScale;
+	//if (scale > 1.25f) dScale = -0.0005f;
+	//if (scale < 0.25f) dScale = 0.0005f;
+	//gMeshInstance.setScale(glm::vec3(scale));
 
-	// rotate mesh
-	glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
-	gMeshInstance.T.rotation *= r;
-	
-	gMeshInstance.diffuseColor += glm::vec4(0.0013f, 0.000921f, 0.00119f, 0.0f);
-	if (gMeshInstance.diffuseColor[0] > 1.0f) gMeshInstance.diffuseColor[0] = 0.25f;
-	if (gMeshInstance.diffuseColor[1] > 1.0f) gMeshInstance.diffuseColor[1] = 0.25f;
-	if (gMeshInstance.diffuseColor[2] > 1.0f) gMeshInstance.diffuseColor[2] = 0.25f;
+	//// rotate mesh
+	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
+	//gMeshInstance.T.rotation *= r;
+	//
+	//gMeshInstance.diffuseColor += glm::vec4(0.0013f, 0.000921f, 0.00119f, 0.0f);
+	//if (gMeshInstance.diffuseColor[0] > 1.0f) gMeshInstance.diffuseColor[0] = 0.25f;
+	//if (gMeshInstance.diffuseColor[1] > 1.0f) gMeshInstance.diffuseColor[1] = 0.25f;
+	//if (gMeshInstance.diffuseColor[2] > 1.0f) gMeshInstance.diffuseColor[2] = 0.25f;
 }
 
 //-------------------------------------------------------------------------//
