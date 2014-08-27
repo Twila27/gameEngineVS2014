@@ -39,10 +39,13 @@ glm::vec4 backgroundColor;
 ISoundEngine* soundEngine = NULL;
 ISound* music = NULL;
 
-TriMesh gMesh;
-TriMeshInstance gMeshInstance;
-Camera gCamera;
-RGBAImage textureImage;
+vector<TriMesh> gMeshes;
+vector<TriMeshInstance> gMeshInstances;
+vector<Camera> gCameras;
+//vector<string> gSceneFileNames;
+
+unsigned int gActiveCamera = 0;
+//unsigned int gActiveScene;
 
 //-------------------------------------------------------------------------//
 // Parse Scene File
@@ -77,15 +80,23 @@ void loadWorldSettings(FILE *F)
 void loadMesh(FILE *F)
 {
 	string token;
+
+	gMeshes.push_back(TriMesh());
+
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") {
 			break;
 		}
+		else if (token == "name") {
+			string meshName = "";
+			getToken(F, meshName, ONE_TOKENS);
+			gMeshes.back().setName(meshName);
+		}
 		else if (token == "file") {
 			string fileName = "";
 			getToken(F, fileName, ONE_TOKENS);
-			gMesh.readFromPly(fileName, false);
-			gMesh.sendToOpenGL();
+			gMeshes.back().readFromPly(fileName, false);
+			gMeshes.back().sendToOpenGL();
 		}
 	}
 }
@@ -96,6 +107,8 @@ void loadMeshInstance(FILE *F)
 	GLuint vertexShader = NULL_HANDLE;
 	GLuint fragmentShader = NULL_HANDLE;
 	GLuint shaderProgram = NULL_HANDLE;
+
+	gMeshInstances.push_back(TriMeshInstance());
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") {
@@ -124,37 +137,40 @@ void loadMeshInstance(FILE *F)
 		else if (token == "diffuseTexture") {
 			string texFileName;
 			getToken(F, texFileName, ONE_TOKENS);
-			gMeshInstance.diffuseTexture.loadPNG(texFileName);
-			gMeshInstance.diffuseTexture.sendToOpenGL();
+			gMeshInstances.back().diffuseTexture.loadPNG(texFileName);
+			gMeshInstances.back().diffuseTexture.sendToOpenGL();
 		}
 		else if (token == "mesh") {
 			string meshName;
 			getToken(F, meshName, ONE_TOKENS);
-			// Should go out and find the mesh, but since right now there is
-			// only one global mesh, we use that.
-			gMeshInstance.setMesh(&gMesh);
+			// Match the supplied "filename.ply" to a member of gMeshes.
+			for (int i = 0; i < (int)gMeshes.size(); ++i) 
+				if (gMeshes[i].name == meshName) 
+					gMeshInstances.back().setMesh(&gMeshes[i]);
 		}
 	}
 
 	shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-	gMeshInstance.setShader(shaderProgram);
+	gMeshInstances.back().setShader(shaderProgram);
 }
 
 void loadCamera(FILE *F)
 {
 	string token;
 
+	gCameras.push_back(Camera());
+
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
-		else if (token == "eye") getFloats(F, &(gCamera.eye[0]), 3);
-		else if (token == "center") getFloats(F, &(gCamera.center[0]), 3);
-		else if (token == "vup") getFloats(F, &(gCamera.vup[0]), 3);
-		else if (token == "znear") getFloats(F, &(gCamera.znear), 1);
-		else if (token == "zfar") getFloats(F, &(gCamera.zfar), 1);
-		else if (token == "fovy") getFloats(F, &(gCamera.fovy), 1);
+		else if (token == "eye") getFloats(F, &(gCameras.back().eye[0]), 3);
+		else if (token == "center") getFloats(F, &(gCameras.back().center[0]), 3);
+		else if (token == "vup") getFloats(F, &(gCameras.back().vup[0]), 3);
+		else if (token == "znear") getFloats(F, &(gCameras.back().znear), 1);
+		else if (token == "zfar") getFloats(F, &(gCameras.back().zfar), 1);
+		else if (token == "fovy") getFloats(F, &(gCameras.back().fovy), 1);
 	}
 
-	gCamera.refreshTransform((float)gWidth, (float)gHeight);
+	gCameras.back().refreshTransform((float)gWidth, (float)gHeight);
 }
 
 void loadScene(const char *sceneFile)
@@ -220,8 +236,7 @@ void render(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
 	// draw scene
-	
-	gMeshInstance.draw(gCamera);
+	for (int i = 0; i < (int)gMeshInstances.size(); ++i) gMeshInstances[i].draw(gCameras[gActiveCamera]);
 }
 
 //-------------------------------------------------------------------------//
@@ -247,6 +262,7 @@ int main(int numArgs, char **args)
 	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
 	//if (music) music->setMinDistance(5.0f); // distance of full volume
 
+	// Load all curernt args into gSceneFileNames to swap about later
 	loadScene(args[1]);
 
 	// start time (used to time framerate)
