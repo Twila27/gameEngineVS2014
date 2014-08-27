@@ -8,22 +8,6 @@
 #include "EngineUtil.h"
 
 //-------------------------------------------------------------------------//
-// Callback for Keyboard Input
-//-------------------------------------------------------------------------//
-
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, GL_TRUE);
-	}
-
-	if (action == GLFW_PRESS &&
-		((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9'))) {
-		printf("\n%c\n", (char)key);
-	}
-}
-
-//-------------------------------------------------------------------------//
 // Global State.  Eventually, this should include the global 
 // state of the system, including multiple scenes, objects, shaders, 
 // cameras, and all other resources needed by the system.
@@ -42,10 +26,54 @@ ISound* music = NULL;
 vector<TriMesh> gMeshes;
 vector<TriMeshInstance> gMeshInstances;
 vector<Camera> gCameras;
-//vector<string> gSceneFileNames;
+vector<string> gSceneFileNames;
 
+//These will not change until their keys are pressed.
 unsigned int gActiveCamera = 0;
-//unsigned int gActiveScene;
+unsigned int gActiveScene = 0;
+bool gShouldSwapScene = false;
+
+//-------------------------------------------------------------------------//
+// Callback for Keyboard Input
+//-------------------------------------------------------------------------//
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, GL_TRUE);
+	}
+
+	//Ctrl changes cameras, Shift changes scenes.
+	if (action == GLFW_PRESS) {
+		switch (key) {
+		case GLFW_KEY_LEFT:
+			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == 0) ? gCameras.size() - 1 : gActiveCamera - 1;
+			else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
+				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
+				gShouldSwapScene = true;
+			}
+			else gCameras[gActiveCamera].eye.x -= 1;
+			break;
+		case GLFW_KEY_RIGHT:
+			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
+			else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
+				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
+				gShouldSwapScene = true;
+			}
+			else gCameras[gActiveCamera].eye.x += 1;
+			break;
+		case GLFW_KEY_UP:
+			gCameras[gActiveCamera].eye.y += 1; break;
+		case GLFW_KEY_DOWN:
+			gCameras[gActiveCamera].eye.y -= 1; break;
+		}
+	}
+
+	if (action == GLFW_PRESS &&
+		((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9'))) {
+		printf("\n%c\n", (char)key);
+	}
+}
 
 //-------------------------------------------------------------------------//
 // Parse Scene File
@@ -223,6 +251,14 @@ void update(void)
 	//if (gMeshInstance.diffuseColor[0] > 1.0f) gMeshInstance.diffuseColor[0] = 0.25f;
 	//if (gMeshInstance.diffuseColor[1] > 1.0f) gMeshInstance.diffuseColor[1] = 0.25f;
 	//if (gMeshInstance.diffuseColor[2] > 1.0f) gMeshInstance.diffuseColor[2] = 0.25f;
+
+	gCameras[gActiveCamera].refreshTransform(gWidth, gHeight);
+
+	if (gShouldSwapScene) {
+		gShouldSwapScene = false;
+		if (music) music->drop();
+		loadScene(gSceneFileNames[gActiveScene].c_str());
+	}
 }
 
 //-------------------------------------------------------------------------//
@@ -262,8 +298,9 @@ int main(int numArgs, char **args)
 	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
 	//if (music) music->setMinDistance(5.0f); // distance of full volume
 
-	// Load all curernt args into gSceneFileNames to swap about later
 	loadScene(args[1]);
+	// Load all curernt args into gSceneFileNames to swap about later.
+	for (int i = 0; i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
 
 	// start time (used to time framerate)
 	double startTime = TIME();
