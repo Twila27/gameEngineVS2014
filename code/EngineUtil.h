@@ -181,7 +181,7 @@ public:
 class TriMesh
 {
 public:
-	string fileName;
+	string name;
 	vector<string> attributes;
 	vector<float> vertexData;
 	vector<int> indices;
@@ -190,6 +190,7 @@ public:
 	GLuint vao; // vertex array handle
 	GLuint ibo; // index buffer handle
 	
+	void setName(const string &str) { name = str; }
 	bool readFromPly(const string &fileName, bool flipZ = false);
 	bool sendToOpenGL(void);
 	void draw(void);
