@@ -111,6 +111,16 @@ void loadMeshInstance(FILE *F)
 			getToken(F, fsFileName, ONE_TOKENS);
 			fragmentShader = loadShader(fsFileName.c_str(), GL_FRAGMENT_SHADER);
 		}
+		else if (token == "phongShader") {
+			string psFileName;
+			getToken(F, psFileName, ONE_TOKENS);
+			//phongShader = loadShader(psFileName.c_str(), );
+		}
+		else if (token == "emissionShader") {
+			string esFileName;
+			getToken(F, esFileName, ONE_TOKENS);
+			//emissionShader = loadShader(esFileName.c_str(), );
+		}
 		else if (token == "diffuseTexture") {
 			string texFileName;
 			getToken(F, texFileName, ONE_TOKENS);
