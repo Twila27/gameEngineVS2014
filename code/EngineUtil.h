@@ -181,6 +181,7 @@ public:
 class TriMesh
 {
 public:
+	string fileName;
 	vector<string> attributes;
 	vector<float> vertexData;
 	vector<int> indices;
