@@ -23,10 +23,10 @@ glm::vec4 backgroundColor;
 ISoundEngine* soundEngine = NULL;
 ISound* music = NULL;
 
-vector<TriMesh> gMeshes;
-vector<TriMeshInstance> gMeshInstances;
-vector<Camera> gCameras;
-vector<string> gSceneFileNames;
+map<string, TriMesh*> gMeshes;
+vector<TriMeshInstance*> gMeshInstances;
+vector<Camera*> gCameras;
+vector<char*> gSceneFileNames;
 
 //These will not change until their keys are pressed.
 unsigned int gActiveCamera = 0;
@@ -52,7 +52,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera].eye.x -= 1;
+			else gCameras[gActiveCamera]->eye.x -= 1;
 			break;
 		case GLFW_KEY_RIGHT:
 			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
@@ -60,12 +60,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera].eye.x += 1;
+			else gCameras[gActiveCamera]->eye.x += 1;
 			break;
-		case GLFW_KEY_UP:
-			gCameras[gActiveCamera].eye.y += 1; break;
-		case GLFW_KEY_DOWN:
-			gCameras[gActiveCamera].eye.y -= 1; break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->eye.y += 1; break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->eye.y -= 1; break;
 		}
 	}
 
@@ -96,7 +94,10 @@ void loadWorldSettings(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
+			
+			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
 			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 
+			
 		}
 	}
 
@@ -107,26 +108,18 @@ void loadWorldSettings(FILE *F)
 
 void loadMesh(FILE *F)
 {
-	string token;
-
-	gMeshes.push_back(TriMesh());
+	string token, meshName(""), fileName("");
 
 	while (getToken(F, token, ONE_TOKENS)) {
-		if (token == "}") {
-			break;
-		}
-		else if (token == "name") {
-			string meshName = "";
-			getToken(F, meshName, ONE_TOKENS);
-			gMeshes.back().setName(meshName);
-		}
-		else if (token == "file") {
-			string fileName = "";
-			getToken(F, fileName, ONE_TOKENS);
-			gMeshes.back().readFromPly(fileName, false);
-			gMeshes.back().sendToOpenGL();
-		}
+		if (token == "}") break;
+		else if (token == "name") getToken(F, meshName, ONE_TOKENS);
+		else if (token == "file") getToken(F, fileName, ONE_TOKENS);
 	}
+
+	gMeshes[meshName] = new TriMesh();
+	gMeshes[meshName]->setName(meshName);
+	gMeshes[meshName]->readFromPly(fileName, false);
+	gMeshes[meshName]->sendToOpenGL();
 }
 
 void loadMeshInstance(FILE *F)
@@ -136,7 +129,7 @@ void loadMeshInstance(FILE *F)
 	GLuint fragmentShader = NULL_HANDLE;
 	GLuint shaderProgram = NULL_HANDLE;
 
-	gMeshInstances.push_back(TriMeshInstance());
+	gMeshInstances.push_back(new TriMeshInstance());
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") {
@@ -152,57 +145,58 @@ void loadMeshInstance(FILE *F)
 			getToken(F, fsFileName, ONE_TOKENS);
 			fragmentShader = loadShader(fsFileName.c_str(), GL_FRAGMENT_SHADER);
 		}
-		else if (token == "phongShader") {
-			string psFileName;
-			getToken(F, psFileName, ONE_TOKENS);
-			//phongShader = loadShader(psFileName.c_str(), );
-		}
-		else if (token == "emissionShader") {
-			string esFileName;
-			getToken(F, esFileName, ONE_TOKENS);
-			//emissionShader = loadShader(esFileName.c_str(), );
-		}
 		else if (token == "diffuseTexture") {
 			string texFileName;
 			getToken(F, texFileName, ONE_TOKENS);
-			gMeshInstances.back().diffuseTexture.loadPNG(texFileName);
-			gMeshInstances.back().diffuseTexture.sendToOpenGL();
+			gMeshInstances.back()->diffuseTexture.loadPNG(texFileName);
+			gMeshInstances.back()->diffuseTexture.sendToOpenGL();
 		}
 		else if (token == "mesh") {
 			string meshName;
 			getToken(F, meshName, ONE_TOKENS);
 			// Match the supplied "filename.ply" to a member of gMeshes.
-			for (int i = 0; i < (int)gMeshes.size(); ++i) 
-				if (gMeshes[i].name == meshName) 
-					gMeshInstances.back().setMesh(&gMeshes[i]);
+			gMeshInstances.back()->setMesh(gMeshes[meshName]);
 		}
 	}
 
 	shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-	gMeshInstances.back().setShader(shaderProgram);
+	gMeshInstances.back()->setShader(shaderProgram);
 }
 
 void loadCamera(FILE *F)
 {
 	string token;
 
-	gCameras.push_back(Camera());
+	gCameras.push_back(new Camera());
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
-		else if (token == "eye") getFloats(F, &(gCameras.back().eye[0]), 3);
-		else if (token == "center") getFloats(F, &(gCameras.back().center[0]), 3);
-		else if (token == "vup") getFloats(F, &(gCameras.back().vup[0]), 3);
-		else if (token == "znear") getFloats(F, &(gCameras.back().znear), 1);
-		else if (token == "zfar") getFloats(F, &(gCameras.back().zfar), 1);
-		else if (token == "fovy") getFloats(F, &(gCameras.back().fovy), 1);
+		else if (token == "eye") getFloats(F, &(gCameras.back()->eye[0]), 3);
+		else if (token == "center") getFloats(F, &(gCameras.back()->center[0]), 3);
+		else if (token == "vup") getFloats(F, &(gCameras.back()->vup[0]), 3);
+		else if (token == "znear") getFloats(F, &(gCameras.back()->znear), 1);
+		else if (token == "zfar") getFloats(F, &(gCameras.back()->zfar), 1);
+		else if (token == "fovy") getFloats(F, &(gCameras.back()->fovy), 1);
 	}
 
-	gCameras.back().refreshTransform((float)gWidth, (float)gHeight);
+	gCameras.back()->refreshTransform((float)gWidth, (float)gHeight);
 }
 
 void loadScene(const char *sceneFile)
 {
+	//Unload the previous scene if there was one.
+	if (!gMeshes.empty()) gMeshes.clear();
+	if (!gMeshInstances.empty()) gMeshInstances.clear();
+	if (!gCameras.empty()) gCameras.clear();
+
+	//Add the path used for the scene to the EngineUtil's PATH variable.
+	string sceneFileName = sceneFile;
+	int separatorIndex = sceneFileName.find_last_of("/");
+	if (separatorIndex < 0)
+		separatorIndex = sceneFileName.find_last_of("\\");
+	if (separatorIndex > 0)
+		addToPath(sceneFileName.substr(0, separatorIndex + 1));
+
 	FILE *F = openFileForReading(sceneFile);
 	string token;
 
@@ -229,6 +223,15 @@ void loadScene(const char *sceneFile)
 
 void update(void)
 {	
+	gCameras[gActiveCamera]->refreshTransform((float)gWidth, (float)gHeight);
+
+	if (gShouldSwapScene) {
+		gShouldSwapScene = false;
+		if (music) music->drop();
+		soundEngine->stopAllSounds();
+		glfwTerminate();
+		loadScene(gSceneFileNames[gActiveScene]);
+	}
 	///*
 	//// move mesh instance
 	//gMeshInstance.translation[0] += 0.003f;
@@ -252,13 +255,7 @@ void update(void)
 	//if (gMeshInstance.diffuseColor[1] > 1.0f) gMeshInstance.diffuseColor[1] = 0.25f;
 	//if (gMeshInstance.diffuseColor[2] > 1.0f) gMeshInstance.diffuseColor[2] = 0.25f;
 
-	gCameras[gActiveCamera].refreshTransform(gWidth, gHeight);
 
-	if (gShouldSwapScene) {
-		gShouldSwapScene = false;
-		if (music) music->drop();
-		loadScene(gSceneFileNames[gActiveScene].c_str());
-	}
 }
 
 //-------------------------------------------------------------------------//
@@ -272,7 +269,7 @@ void render(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
 	// draw scene
-	for (int i = 0; i < (int)gMeshInstances.size(); ++i) gMeshInstances[i].draw(gCameras[gActiveCamera]);
+	for (int i = 0; i < (int)gMeshInstances.size(); ++i) gMeshInstances[i]->draw(*gCameras[gActiveCamera]);
 }
 
 //-------------------------------------------------------------------------//
@@ -298,9 +295,11 @@ int main(int numArgs, char **args)
 	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
 	//if (music) music->setMinDistance(5.0f); // distance of full volume
 
-	loadScene(args[1]);
-	// Load all curernt args into gSceneFileNames to swap about later.
-	for (int i = 0; i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
+	// Load all curernt args into gSceneFileNames to swap about later. i=1 for start because args[0] is just the program name.
+	for (int i = 1; i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
+
+	// Load first scene.
+	loadScene(gSceneFileNames[0]);
 
 	// start time (used to time framerate)
 	double startTime = TIME();

@@ -53,7 +53,7 @@ GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int sam
 	glfwMakeContextCurrent(window);
     
 	// Ensure we can capture the escape key being pressed
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
     
 	// Initialize GLEW
 	glewExperimental = GL_TRUE;

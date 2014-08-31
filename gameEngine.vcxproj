@@ -53,12 +53,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\dave\classes\gameEngine\engineBaseWindows\glew\glew-1.10.0\include;C:\dave\classes\gameEngine\engineBaseWindows\glfw\glfw-3.0.4.bin.WIN32\include;C:\dave\classes\gameEngine\engineBaseWindows\irrKlang\irrKlang-1.5.0\include;C:\dave\classes\gameEngine\engineBaseWindows\glm\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glm\glm;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Program Files\Windows Kits\8.1\Lib\winv6.3\um\x86;C:\dave\classes\gameEngine\engineBaseWindows\glew\glew-1.10.0\lib\Release\Win32;C:\dave\classes\gameEngine\engineBaseWindows\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\dave\classes\gameEngine\engineBaseWindows\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\lib\Release\Win32;C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glew32.lib;OpenGL32.lib;irrKlang.lib;glfw3dll.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>

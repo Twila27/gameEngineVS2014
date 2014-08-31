@@ -20,6 +20,7 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <map>
 using namespace std;
 
 // lodePNG stuff (image reading)
