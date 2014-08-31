@@ -197,6 +197,11 @@ public:
 	void draw(void);
 };
 
+class Material {
+	glm::vec4 diffuseColor;
+	RGBAImage diffuseTexture;
+};
+
 // should extend EngineObject
 class TriMeshInstance 
 {

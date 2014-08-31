@@ -135,6 +135,9 @@ void loadMeshInstance(FILE *F)
 		if (token == "}") {
 			break;
 		}
+		else if (token == "translation") getFloats(F, &(gMeshInstances.back()->T.translation[0]), 3);
+		else if (token == "rotation") getFloats(F, &(gMeshInstances.back()->T.rotation[0]), 4);
+		else if (token == "scale") getFloats(F, &(gMeshInstances.back()->T.scale[0]), 3);
 		else if (token == "vertexShader") {
 			string vsFileName;
 			getToken(F, vsFileName, ONE_TOKENS);
