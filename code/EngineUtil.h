@@ -173,6 +173,31 @@ public:
 			(float)(screenWidth / screenHeight), (float)znear, (float)zfar);
 		worldViewProject = project * worldView;
 	}
+	void translateGlobal(glm::vec3 &t) { eye += t; center += t; }
+	void translateLocal(glm::vec3 &t) {
+		glm::vec3 zz = glm::normalize(eye - center);
+		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
+		glm::vec3 yy = glm::cross(zz, xx);
+		glm::vec3 tt = t.x*xx + t.y*yy + t.z*zz;
+		eye += tt; center += tt;
+	}
+	void rotateGlobal(glm::vec3 axis, float angle) {
+		glm::mat4x4 R = glm::axisAngleMatrix(axis, angle);
+		glm::vec4 zz = glm::vec4(eye - center, 0);
+		glm::vec4 Rzz = R*zz;
+		center = eye - glm::vec3(Rzz);
+		//
+		glm::vec4 up = glm::vec4(vup, 0);
+		glm::vec4 Rup = R*up;
+		vup = glm::vec3(Rup);
+	}
+	void rotateLocal(glm::vec3 axis, float angle) {
+		glm::vec3 zz = glm::normalize(eye - center);
+		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
+		glm::vec3 yy = glm::cross(zz, xx);
+		glm::vec3 aa = xx*axis.x + yy*axis.y + zz*axis.z;
+		rotateGlobal(aa, angle);
+	}
 };
 
 //-------------------------------------------------------------------------//
@@ -220,7 +245,7 @@ public:
 	TriMeshInstance(void);
     
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
-	void setShaderProgram(GLuint shaderProgram) { shaderProgram = shaderProgram; }
+	void setShaderProgram(GLuint shaderProgram) { this->shaderProgram = shaderProgram; }
 	void setDiffuseColor(const glm::vec4 &c) { diffuseColor = c; }
 	void setScale(const glm::vec3 &s) { T.scale = s; }
 	void setRotation(const glm::quat &r) { T.rotation = r; }

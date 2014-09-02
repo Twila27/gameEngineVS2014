@@ -43,6 +43,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
+	//Handle discrete movements.
 	//Ctrl changes cameras, Shift changes scenes.
 	if (action == GLFW_PRESS) {
 		switch (key) {
@@ -52,7 +53,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->eye.x -= 1;
+			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(-0.1f, 0.0f, 0.0f));
 			break;
 		case GLFW_KEY_RIGHT:
 			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
@@ -60,10 +61,25 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->eye.x += 1;
+			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(0.1f, 0.0f, 0.0f));
 			break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->eye.y += 1; break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->eye.y -= 1; break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.1f) : glm::vec3(0.0f, 0.1f, 0.0f)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.1f) : glm::vec3(0.0f, -0.1f, 0.0f)); break;
+		case GLFW_KEY_A: 
+			//double *x, *y;
+			//glfwGetCursorPos(window, x, y);
+			gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.1f, 0.0f, 0.0f), 0.001f);
+			break;
+		}
+	}
+
+	//Handle continuous movements.
+	if (action == GLFW_REPEAT) {
+		switch (key) {
+		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(-0.05f, 0.0f, 0.0f)); break;
+		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(0.05f, 0.0f, 0.0f)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.05f): glm::vec3(0.0f, 0.05f, 0.0f)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.05f) : glm::vec3(0.0f, -0.05f, 0.0f)); break;
 		}
 	}
 
