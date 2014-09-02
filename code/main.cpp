@@ -163,7 +163,7 @@ void loadMeshInstance(FILE *F)
 	}
 
 	shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-	gMeshInstances.back()->setShader(shaderProgram);
+	gMeshInstances.back()->setShaderProgram(shaderProgram);
 }
 
 void loadCamera(FILE *F)

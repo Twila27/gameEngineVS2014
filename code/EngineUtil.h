@@ -220,7 +220,7 @@ public:
 	TriMeshInstance(void);
     
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
-	void setShader(GLuint shader) { shaderProgram = shader; }
+	void setShaderProgram(GLuint shaderProgram) { shaderProgram = shaderProgram; }
 	void setDiffuseColor(const glm::vec4 &c) { diffuseColor = c; }
 	void setScale(const glm::vec3 &s) { T.scale = s; }
 	void setRotation(const glm::quat &r) { T.rotation = r; }
