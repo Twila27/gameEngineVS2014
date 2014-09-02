@@ -65,11 +65,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			break;
 		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.1f) : glm::vec3(0.0f, 0.1f, 0.0f)); break;
 		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.1f) : glm::vec3(0.0f, -0.1f, 0.0f)); break;
-		case GLFW_KEY_A: 
-			//double *x, *y;
-			//glfwGetCursorPos(window, x, y);
-			gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.1f, 0.0f, 0.0f), 0.001f);
-			break;
+		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 0.0f, 1.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
+		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1.0f, 0.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
+		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 1.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
 		}
 	}
 
@@ -80,6 +78,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(0.05f, 0.0f, 0.0f)); break;
 		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.05f): glm::vec3(0.0f, 0.05f, 0.0f)); break;
 		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.05f) : glm::vec3(0.0f, -0.05f, 0.0f)); break;
+		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 0.0f, 1.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
+		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1.0f, 0.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
+		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 1.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
 		}
 	}
 
