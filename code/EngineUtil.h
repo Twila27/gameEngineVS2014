@@ -222,9 +222,22 @@ public:
 	void draw(void);
 };
 
-class Material {
-	glm::vec4 diffuseColor;
-	RGBAImage diffuseTexture;
+class Material 
+{
+public:
+	GLuint shaderProgramHandle; //Currently in instance class.
+	glm::vec4 diffuseColor, specularColor;
+	RGBAImage diffuseTexture; 
+	//!\ Big goal is to take out the setting of uniforms initially that only need to be set once.
+		//These can instead be set (the glGetUniform calls) inside Material().
+	//"You want to be able to reuse the same shader and just send colors to the material."
+	//Holds a lot of the properties that are held by Materials in Blender, generally speaking.
+	//Look into the draw() method in EngineUtil.cpp and stop it from looking up properties by string.
+		//This query returns the uniform handle which is sent in glUniform4fv() to set the property.
+	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
+	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
+	Material(void);
+	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
 };
 
 // should extend EngineObject
@@ -232,24 +245,19 @@ class TriMeshInstance
 {
 public:
 	TriMesh *triMesh;
-	GLuint shaderProgram;
-    
-	// replace with material
-	glm::vec4 diffuseColor;  
-	RGBAImage diffuseTexture;
-
-    
-	Transform T;
+	Material *instanceMaterial;
+	Transform instanceTransform;
 	
 public:
 	TriMeshInstance(void);
     
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
-	void setShaderProgram(GLuint shaderProgram) { this->shaderProgram = shaderProgram; }
-	void setDiffuseColor(const glm::vec4 &c) { diffuseColor = c; }
-	void setScale(const glm::vec3 &s) { T.scale = s; }
-	void setRotation(const glm::quat &r) { T.rotation = r; }
-	void setTranslation(const glm::vec3 &t) { T.translation = t; }
+	void setMaterial(Material *material) { instanceMaterial = material; }
+	void setDiffuseColor(const glm::vec4 &c) { instanceMaterial->diffuseColor = c; }
+	void setSpecularColor(const glm::vec4 &c) { instanceMaterial->specularColor = c; }
+	void setScale(const glm::vec3 &s) { instanceTransform.scale = s; }
+	void setRotation(const glm::quat &r) { instanceTransform.rotation = r; }
+	void setTranslation(const glm::vec3 &t) { instanceTransform.translation = t; }
     
 	void refreshTransform(void);
     

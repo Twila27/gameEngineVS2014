@@ -27,7 +27,7 @@ double TIME(void)
 
 void SLEEP(int millis)
 {
-	this_thread::sleep_for(chrono::milliseconds(1));
+	this_thread::sleep_for(chrono::milliseconds(millis));
 }
 
 //-------------------------------------------------------------------------//
@@ -598,47 +598,55 @@ void TriMesh::draw(void)
 
 //-------------------------------------------------------------------------//
 
+Material::Material(void)
+{
+	shaderProgramHandle = NULL_HANDLE;
+	diffuseColor = glm::vec4(1, 1, 1, 1);
+	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
+}
+
+//-------------------------------------------------------------------------//
+
 TriMeshInstance::TriMeshInstance(void)
 {
 	triMesh = NULL;
-	shaderProgram = NULL_HANDLE;
+	instanceMaterial = NULL;
     
-	diffuseColor = glm::vec4(1, 1, 1, 1);
-	T.scale = glm::vec3(1, 1, 1);
-	T.translation = glm::vec3(0, 0, 0);
+	instanceTransform.scale = glm::vec3(1, 1, 1);
+	instanceTransform.translation = glm::vec3(0, 0, 0);
 }
 
 //-------------------------------------------------------------------------//
 
 void TriMeshInstance::draw(Camera &camera)
 {
-	glUseProgram(shaderProgram);
+	glUseProgram(instanceMaterial->shaderProgramHandle);
     
 	// Inefficient.  Looks up uniforms by string every time.
 	// Setting the uniforms should probably part of a Material
 	// class.
 	
-	GLint loc = glGetUniformLocation(shaderProgram, "uDiffuseColor");
-	if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
+	GLint loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uDiffuseColor");
+	if (loc != -1) glUniform4fv(loc, 1, &instanceMaterial->diffuseColor[0]);
 
-	loc = glGetUniformLocation(shaderProgram, "uDiffuseTex");
-	if (loc != -1) glBindSampler(loc, diffuseTexture.samplerId);
+	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uDiffuseTex");
+	if (loc != -1) glBindSampler(loc, instanceMaterial->diffuseTexture.samplerId);
 	else ERROR("Could not bind texture", false);
 	//printVec(color);
     
-	T.refreshTransform();
+	instanceTransform.refreshTransform();
 	//printMat(transform);
 
-	loc = glGetUniformLocation(shaderProgram, "uObjectWorldM");
-	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.transform));
+	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldM");
+	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.transform));
 	//else ERROR("Could not load uniform uObjectWorldM", false);
 
-	loc = glGetUniformLocation(shaderProgram, "uObjectWorldInverseM");
-	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.invTransform));
+	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldInverseM");
+	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.invTransform));
 	//else ERROR("Could not load uniform uObjectWorldInverseM", false);
 
-	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * T.transform;
-	loc = glGetUniformLocation(shaderProgram, "uObjectPerpsectM");
+	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * instanceTransform.transform;
+	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectPerpsectM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
 	//else ERROR("Could not load uniform uObjectPerpsectM", false);
     

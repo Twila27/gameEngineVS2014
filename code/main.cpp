@@ -24,6 +24,7 @@ ISoundEngine* soundEngine = NULL;
 ISound* music = NULL;
 
 map<string, TriMesh*> gMeshes;
+map<string, Material*> gMaterials;
 vector<TriMeshInstance*> gMeshInstances;
 vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
@@ -139,22 +140,18 @@ void loadMesh(FILE *F)
 	gMeshes[meshName]->sendToOpenGL();
 }
 
-void loadMeshInstance(FILE *F)
+void loadMaterial(FILE *F)
 {
-	string token;
+	string token, materialName("");
 	GLuint vertexShader = NULL_HANDLE;
 	GLuint fragmentShader = NULL_HANDLE;
 	GLuint shaderProgram = NULL_HANDLE;
 
-	gMeshInstances.push_back(new TriMeshInstance());
+	Material *m = new Material();
 
 	while (getToken(F, token, ONE_TOKENS)) {
-		if (token == "}") {
-			break;
-		}
-		else if (token == "translation") getFloats(F, &(gMeshInstances.back()->T.translation[0]), 3);
-		else if (token == "rotation") getFloats(F, &(gMeshInstances.back()->T.rotation[0]), 4);
-		else if (token == "scale") getFloats(F, &(gMeshInstances.back()->T.scale[0]), 3);
+		if (token == "}") break;
+		else if (token == "name") getToken(F, materialName, ONE_TOKENS);
 		else if (token == "vertexShader") {
 			string vsFileName;
 			getToken(F, vsFileName, ONE_TOKENS);
@@ -168,19 +165,45 @@ void loadMeshInstance(FILE *F)
 		else if (token == "diffuseTexture") {
 			string texFileName;
 			getToken(F, texFileName, ONE_TOKENS);
-			gMeshInstances.back()->diffuseTexture.loadPNG(texFileName);
-			gMeshInstances.back()->diffuseTexture.sendToOpenGL();
+			m->diffuseTexture.loadPNG(texFileName);
+			m->diffuseTexture.sendToOpenGL();
+		}
+	}
+
+	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
+	//Add calls to initialize the handles to uniforms here?
+	if (materialName != "") gMaterials[materialName] = m;
+}
+
+void loadMeshInstance(FILE *F)
+{
+	string token;
+	GLuint vertexShader = NULL_HANDLE;
+	GLuint fragmentShader = NULL_HANDLE;
+	GLuint shaderProgram = NULL_HANDLE;
+
+	gMeshInstances.push_back(new TriMeshInstance());
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") {
+			break;
+		}
+		else if (token == "translation") getFloats(F, &(gMeshInstances.back()->instanceTransform.translation[0]), 3);
+		else if (token == "rotation") getFloats(F, &(gMeshInstances.back()->instanceTransform.rotation[0]), 4);
+		else if (token == "scale") getFloats(F, &(gMeshInstances.back()->instanceTransform.scale[0]), 3);
+		else if (token == "material") {
+			string materialName;
+			getToken(F, materialName, ONE_TOKENS);
+			if (gMaterials.count(materialName) > 0)	gMeshInstances.back()->setMaterial(gMaterials[materialName]);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
 		}
 		else if (token == "mesh") {
 			string meshName;
 			getToken(F, meshName, ONE_TOKENS);
-			// Match the supplied "filename.ply" to a member of gMeshes.
-			gMeshInstances.back()->setMesh(gMeshes[meshName]);
+			if (gMeshes.count(meshName) > 0) gMeshInstances.back()->setMesh(gMeshes[meshName]);
+			else ERROR("Unable to locate gMeshes[" + meshName + "], is the name right in .scene?", false);
 		}
 	}
-
-	shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-	gMeshInstances.back()->setShaderProgram(shaderProgram);
 }
 
 void loadCamera(FILE *F)
@@ -227,6 +250,9 @@ void loadScene(const char *sceneFile)
 		}
 		else if (token == "mesh") {
 			loadMesh(F);
+		}
+		else if (token == "material") {
+			loadMaterial(F);
 		}
 		else if (token == "meshInstance") {
 			loadMeshInstance(F);
@@ -300,7 +326,7 @@ int main(int numArgs, char **args)
 {
 	// check usage
 	if (numArgs < 2) {
-		cout << "Usage: Transforms sceneFile.scene" << endl;
+		cout << "Proper Input: gameEngine.exe sceneFile.scene [sceneFile2.scene ...]" << endl;
 		exit(0);
 	}
 
@@ -355,6 +381,10 @@ int main(int numArgs, char **args)
     
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();
+	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
+	for (auto it = gMeshInstances.begin(); it != gMeshInstances.end(); ++it) delete *it;
+	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
+	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
 	return 0;
 }
 
