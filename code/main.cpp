@@ -35,6 +35,10 @@ unsigned int gActiveCamera = 0;
 unsigned int gActiveScene = 0;
 bool gShouldSwapScene = false;
 
+//For controlling keyboard movement and rotation speeds.
+const float step = 0.1f;
+const float crawl = 0.01f;
+
 //-------------------------------------------------------------------------//
 // Callback for Keyboard Input
 //-------------------------------------------------------------------------//
@@ -55,7 +59,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(-0.1f, 0.0f, 0.0f));
+			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(-step, 0, 0));
 			break;
 		case GLFW_KEY_RIGHT:
 			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
@@ -63,26 +67,26 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(0.1f, 0.0f, 0.0f));
+			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(step, 0, 0));
 			break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.1f) : glm::vec3(0.0f, 0.1f, 0.0f)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.1f) : glm::vec3(0.0f, -0.1f, 0.0f)); break;
-		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 0.0f, 1.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
-		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1.0f, 0.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
-		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 1.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.01f : 0.01f); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
+		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 0, 1), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1, 0, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 1, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
 		}
 	}
 
 	//Handle continuous movements.
 	if (action == GLFW_REPEAT) {
 		switch (key) {
-		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(-0.05f, 0.0f, 0.0f)); break;
-		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(0.05f, 0.0f, 0.0f)); break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, 0.05f): glm::vec3(0.0f, 0.05f, 0.0f)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0.0f, 0.0f, -0.05f) : glm::vec3(0.0f, -0.05f, 0.0f)); break;
-		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 0.0f, 1.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
-		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1.0f, 0.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
-		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0.0f, 1.0f, 0.0f), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -0.005f : 0.005f); break;
+		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(-crawl, 0, 0)); break;
+		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(crawl, 0, 0)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl): glm::vec3(0, crawl, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
+		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 0, 1), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1, 0, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 1, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
 		}
 	}
 
@@ -163,16 +167,21 @@ void loadMaterial(FILE *F)
 			getToken(F, fsFileName, ONE_TOKENS);
 			fragmentShader = loadShader(fsFileName.c_str(), GL_FRAGMENT_SHADER);
 		}
+		else if (token == "diffuseColor") getFloats(F, &(m->diffuseColor[0]), 4);
+		else if (token == "specularColor") getFloats(F, &(m->specularColor[0]), 4);
+		else if (token == "ambientIntensity") getFloats(F, &(m->ambientIntensity[0]), 4);
+		else if (token == "emissiveColor") getFloats(F, &(m->emissiveColor[0]), 4);
 		else if (token == "diffuseTexture") {
 			string texFileName;
 			getToken(F, texFileName, ONE_TOKENS);
-			m->diffuseTexture.loadPNG(texFileName);
-			m->diffuseTexture.sendToOpenGL();
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->loadPNG(texFileName);
+			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->sendToOpenGL();
 		}
 	}
 
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
-	//Add calls to initialize the handles to uniforms here?
+	m->getAndInitUniforms();
 	if (materialName != "") gMaterials[materialName] = m;
 }
 
@@ -218,8 +227,8 @@ void loadLight(FILE *F)
 		else if (token == "type") {
 			string lightType;
 			getToken(F, lightType, ONE_TOKENS);
-			if (lightType == "point") gLights.back()->type = Light::LIGHT_TYPE::POINT_LIGHT;
-			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL_LIGHT;
+			if (lightType == "point") gLights.back()->type = Light::LIGHT_TYPE::POINT;
+			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL;
 			else if (lightType == "spot") gLights.back()->type = Light::LIGHT_TYPE::SPOT_LIGHT;
 		}
 		else if (token == "position") getFloats(F, &(gLights.back()->position[0]), 3);

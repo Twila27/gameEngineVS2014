@@ -205,12 +205,12 @@ public:
 //-------------------------------------------------------------------------//
 
 struct Light {
-	enum LIGHT_TYPE { POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT };
+	enum LIGHT_TYPE { POINT, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
 	LIGHT_TYPE type;
 	glm::vec4 position;
 	glm::vec4 direction;
 	glm::vec3 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
-	Light() { }
+	Light(void) {}
 	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec3 &atten) 
 		: type(type), position(pos), direction(dir), attenuation(atten) { }
 };
@@ -240,19 +240,38 @@ public:
 class Material 
 {
 public:
+	enum TEXTURE_TYPE { DIFFUSE, SPECULAR, SPECULAR_EXPONENT, NORMAL, EMISSIVE, REFLECTION };
 	GLuint shaderProgramHandle; //Currently in instance class.
-	glm::vec4 diffuseColor, specularColor;
-	RGBAImage diffuseTexture; 
-	//!\ Big goal is to take out the setting of uniforms initially that only need to be set once.
-		//These can instead be set (the glGetUniform calls) inside Material().
+	glm::vec4 diffuseColor;
+	glm::vec4 specularColor;
+	glm::vec4 ambientIntensity;
+	glm::vec4 emissiveColor;
+	vector<RGBAImage*> textures; 
 	//"You want to be able to reuse the same shader and just send colors to the material."
-	//Holds a lot of the properties that are held by Materials in Blender, generally speaking.
-	//Look into the draw() method in EngineUtil.cpp and stop it from looking up properties by string.
-		//This query returns the uniform handle which is sent in glUniform4fv() to set the property.
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
 	Material(void);
+	~Material(void) { for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; }
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
+	void getAndInitUniforms()
+	{ //Placing this code here potentially enables shader program swaps.
+
+		if (shaderProgramHandle == NULL_HANDLE) {
+			ERROR("Cannot get uniforms because the shader program handle is not set.", false);
+			return;
+		}
+
+		GLint loc;
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
+		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
+		else ERROR("Failure getting diffuse color uniform.");
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseTex");
+		if (loc != -1) glBindSampler(loc, (*textures[DIFFUSE]).samplerId);
+		else ERROR("Failure getting diffuse texture uniform.", false);
+		//printVec(color);
+	}
 };
 
 // should extend EngineObject

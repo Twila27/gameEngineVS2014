@@ -603,6 +603,8 @@ Material::Material(void)
 	shaderProgramHandle = NULL_HANDLE;
 	diffuseColor = glm::vec4(1, 1, 1, 1);
 	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
+	ambientIntensity = glm::vec4(0.2, 0.2, 0.2, 0.2);
+	emissiveColor = glm::vec4(0.2, 0.0, 0.0, 0.0);
 }
 
 //-------------------------------------------------------------------------//
@@ -626,13 +628,7 @@ void TriMeshInstance::draw(Camera &camera)
 	// Setting the uniforms should probably part of a Material
 	// class.
 	
-	GLint loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uDiffuseColor");
-	if (loc != -1) glUniform4fv(loc, 1, &instanceMaterial->diffuseColor[0]);
-
-	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uDiffuseTex");
-	if (loc != -1) glBindSampler(loc, instanceMaterial->diffuseTexture.samplerId);
-	else ERROR("Could not bind texture", false);
-	//printVec(color);
+	GLint loc;
     
 	instanceTransform.refreshTransform();
 	//printMat(transform);
