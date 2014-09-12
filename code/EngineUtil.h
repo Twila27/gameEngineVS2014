@@ -201,6 +201,21 @@ public:
 };
 
 //-------------------------------------------------------------------------//
+// LIGHT SOURCE
+//-------------------------------------------------------------------------//
+
+struct Light {
+	enum LIGHT_TYPE { POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT };
+	LIGHT_TYPE type;
+	glm::vec4 position;
+	glm::vec4 direction;
+	glm::vec3 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
+	Light() { }
+	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec3 &atten) 
+		: type(type), position(pos), direction(dir), attenuation(atten) { }
+};
+
+//-------------------------------------------------------------------------//
 // TRIANGLE MESH
 //-------------------------------------------------------------------------//
 

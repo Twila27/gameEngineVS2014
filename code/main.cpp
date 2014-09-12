@@ -26,6 +26,7 @@ ISound* music = NULL;
 map<string, TriMesh*> gMeshes;
 map<string, Material*> gMaterials;
 vector<TriMeshInstance*> gMeshInstances;
+vector<Light*> gLights;
 vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
@@ -206,6 +207,27 @@ void loadMeshInstance(FILE *F)
 	}
 }
 
+void loadLight(FILE *F) 
+{	
+	string token;
+	
+	gLights.push_back(new Light());
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") break;
+		else if (token == "type") {
+			string lightType;
+			getToken(F, lightType, ONE_TOKENS);
+			if (lightType == "point") gLights.back()->type = Light::LIGHT_TYPE::POINT_LIGHT;
+			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL_LIGHT;
+			else if (lightType == "spot") gLights.back()->type = Light::LIGHT_TYPE::SPOT_LIGHT;
+		}
+		else if (token == "position") getFloats(F, &(gLights.back()->position[0]), 3);
+		else if (token == "direction") getFloats(F, &(gLights.back()->direction[0]), 3);
+		else if (token == "attenuation") getFloats(F, &(gLights.back()->attenuation[0]), 3);
+	}
+}
+
 void loadCamera(FILE *F)
 {
 	string token;
@@ -235,31 +257,20 @@ void loadScene(const char *sceneFile)
 	//Add the path used for the scene to the EngineUtil's PATH variable.
 	string sceneFileName = sceneFile;
 	int separatorIndex = sceneFileName.find_last_of("/");
-	if (separatorIndex < 0)
-		separatorIndex = sceneFileName.find_last_of("\\");
-	if (separatorIndex > 0)
-		addToPath(sceneFileName.substr(0, separatorIndex + 1));
+	if (separatorIndex < 0)	separatorIndex = sceneFileName.find_last_of("\\");
+	if (separatorIndex > 0)	addToPath(sceneFileName.substr(0, separatorIndex + 1));
 
 	FILE *F = openFileForReading(sceneFile);
 	string token;
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		//cout << token << endl;
-		if (token == "worldSettings") {
-			loadWorldSettings(F);
-		}
-		else if (token == "mesh") {
-			loadMesh(F);
-		}
-		else if (token == "material") {
-			loadMaterial(F);
-		}
-		else if (token == "meshInstance") {
-			loadMeshInstance(F);
-		}
-		else if (token == "camera") {
-			loadCamera(F);
-		}
+		if (token == "worldSettings") loadWorldSettings(F);
+		else if (token == "mesh") loadMesh(F);
+		else if (token == "material") loadMaterial(F);
+		else if (token == "meshInstance") loadMeshInstance(F);
+		else if (token == "camera") loadCamera(F);
+		else if (token == "light") loadLight(F);
 	}
 }
 
@@ -382,6 +393,7 @@ int main(int numArgs, char **args)
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
+	for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
 	for (auto it = gMeshInstances.begin(); it != gMeshInstances.end(); ++it) delete *it;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
