@@ -601,6 +601,7 @@ void TriMesh::draw(void)
 Material::Material(void)
 {
 	shaderProgramHandle = NULL_HANDLE;
+	lightUBOHandle = NULL_HANDLE;
 	diffuseColor = glm::vec4(1, 1, 1, 1);
 	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
 	ambientIntensity = glm::vec4(0.2, 0.2, 0.2, 0.2);
@@ -635,17 +636,35 @@ void TriMeshInstance::draw(Camera &camera)
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.transform));
-	//else ERROR("Could not load uniform uObjectWorldM", false);
+	//else ERROR("Could not load uniform uObjectWorldM.", false);
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldInverseM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.invTransform));
-	//else ERROR("Could not load uniform uObjectWorldInverseM", false);
+	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
 
 	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * instanceTransform.transform;
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectPerpsectM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
-	//else ERROR("Could not load uniform uObjectPerpsectM", false);
-    
+	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
+
+	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uViewDirection");
+	if (loc != -1) glUniform3fv(loc, 1, glm::value_ptr(camera.eye));
+#ifdef _DEBUG
+	else ERROR("Could not load uniform uViewDirection.");
+#endif
+
+	//We run this once in our init uniforms in Material, but here thereafter for when lights are updated.
+	loc = instanceMaterial->updatingUniforms["ubGlobalLights"];
+	if (loc != -1) {
+		//Set the uniform block up.
+		glBindBuffer(GL_UNIFORM_BUFFER, instanceMaterial->lightUBOHandle);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(*instanceMaterial->gLightsHandle), (void*)&(*instanceMaterial->gLightsHandle)); //Copy data into buffer w/o glBufferData()'s allocation.
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	}
+#ifdef _DEBUG
+	else ERROR("Failure getting lights uniform block.");
+#endif
+
 	triMesh->draw();
 }
 //-------------------------------------------------------------------------//

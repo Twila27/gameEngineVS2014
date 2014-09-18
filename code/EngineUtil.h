@@ -159,6 +159,7 @@ class Camera
 {
 public:
 	// look from, look at, view up
+	// yaw, pitch, roll then affect look at or center!
 	glm::vec3 eye, center, vup;
 
 	float fovy; // vertical field of view
@@ -207,11 +208,14 @@ public:
 struct Light {
 	enum LIGHT_TYPE { POINT, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
 	LIGHT_TYPE type;
+	int alpha, theta; //Angles we can use for spotlights?
+	int pad; //Ensures this + type = 16 bytes as below, to allow us to make a vec4 array to access lights in shader.
+	glm::vec4 intensity; //A color.
 	glm::vec4 position;
 	glm::vec4 direction;
-	glm::vec3 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
+	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
 	Light(void) {}
-	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec3 &atten) 
+	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten) 
 		: type(type), position(pos), direction(dir), attenuation(atten) { }
 };
 
@@ -237,40 +241,117 @@ public:
 	void draw(void);
 };
 
-class Material 
+class Material
 {
 public:
-	enum TEXTURE_TYPE { DIFFUSE, SPECULAR, SPECULAR_EXPONENT, NORMAL, EMISSIVE, REFLECTION };
+	enum TEXTURE_TYPE { DIFFUSE, SPECULAR, SPECULAR_EXPONENT, EMISSIVE, NORMAL, REFLECTION };
 	GLuint shaderProgramHandle; //Currently in instance class.
+	GLuint lightUBOHandle; 
+	vector<Light*>* gLightsHandle; //Used in TriMeshInstance::draw() to send lights to pixel shader via above UBO.
+	map<string, int> updatingUniforms; //Holds all uniforms locations indicated by their uniform name.
 	glm::vec4 diffuseColor;
 	glm::vec4 specularColor;
+	float specularExponent; //Shiny factor.
 	glm::vec4 ambientIntensity;
 	glm::vec4 emissiveColor;
-	vector<RGBAImage*> textures; 
+	vector<RGBAImage*> textures;
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
 	Material(void);
-	~Material(void) { for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; }
+	~Material(void)	{ for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; }
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
-	void getAndInitUniforms()
-	{ //Placing this code here potentially enables shader program swaps.
+	void setLightUBOHandle(GLuint lightUBOHandle) { this->lightUBOHandle = lightUBOHandle; }
+	void getAndInitUniforms(int maxLights)
+	{ //Placing this code here potentially enables shader program swaps. Can move it to the .cpp though.
 
 		if (shaderProgramHandle == NULL_HANDLE) {
-			ERROR("Cannot get uniforms because the shader program handle is not set.", false);
+			ERROR("Cannot get uniforms because the shader program handle is not set.");
 			return;
 		}
+
+		glUseProgram(shaderProgramHandle);
 
 		GLint loc;
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
 		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
+#ifdef _DEBUG
 		else ERROR("Failure getting diffuse color uniform.");
+#endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseTex");
-		if (loc != -1) glBindSampler(loc, (*textures[DIFFUSE]).samplerId);
-		else ERROR("Failure getting diffuse texture uniform.", false);
+		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::DIFFUSE]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting diffuse texture uniform.");
+#endif 
 		//printVec(color);
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
+		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
+#ifdef _DEBUG
+		else ERROR("Failure getting ambient intensity uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
+		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular color uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
+		if (loc != -1) glUniform1f(loc, specularExponent);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular exponent uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularTex");
+		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::SPECULAR]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular texture uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponentTex");
+		if (loc != -1) glUniform1f(loc, (*textures[TEXTURE_TYPE::SPECULAR_EXPONENT]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular exponent texture uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uEmissiveTex");
+		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::EMISSIVE]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting emissive texture uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uNormalMap");
+		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::NORMAL]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting normal map uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uEnvironmentReflectionMap");
+		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::REFLECTION]).samplerId);
+#ifdef _DEBUG
+		else ERROR("Failure getting environment reflection map uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uActiveLights");
+		if (loc != -1) glUniform1i(loc, maxLights);
+#ifdef _DEBUG
+		else ERROR("Failure getting max lights uniform.");
+#endif 
+
+		loc = glGetUniformBlockIndex(shaderProgramHandle, "ubGlobalLights");
+		updatingUniforms["ubGlobalLights"] = loc;
+		if (loc != -1) {
+			//Set the uniform block up with initial data.
+			glBindBuffer(GL_UNIFORM_BUFFER, lightUBOHandle);
+			glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(*gLightsHandle), (void*)&(*gLightsHandle)); //Copy data into buffer w/o glBufferData()'s allocation.
+			glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		}
+#ifdef _DEBUG
+		else ERROR("Failure getting lights uniform block.");
+#endif 
 	}
 };
 

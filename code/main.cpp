@@ -26,9 +26,12 @@ ISound* music = NULL;
 map<string, TriMesh*> gMeshes;
 map<string, Material*> gMaterials;
 vector<TriMeshInstance*> gMeshInstances;
-vector<Light*> gLights;
 vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
+
+vector<Light*> gLights;
+const int MAX_LIGHTS = 8;
+GLuint gLightsUBO;
 
 //These will not change until their keys are pressed.
 unsigned int gActiveCamera = 0;
@@ -38,6 +41,7 @@ bool gShouldSwapScene = false;
 //For controlling keyboard movement and rotation speeds.
 const float step = 0.1f;
 const float crawl = 0.01f;
+double curr_xx, prev_xx, curr_yy, prev_yy;
 
 //-------------------------------------------------------------------------//
 // Callback for Keyboard Input
@@ -67,26 +71,32 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(step, 0, 0));
+			else gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
 			break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
-		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 0, 1), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
-		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1, 0, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
-		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 1, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
+		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
+		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
+		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
+		case GLFW_KEY_S: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), -crawl); break;
+		case GLFW_KEY_A: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), crawl); break;
+		case GLFW_KEY_D: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), -crawl); break;
 		}
 	}
 
 	//Handle continuous movements.
 	if (action == GLFW_REPEAT) {
 		switch (key) {
-		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(-crawl, 0, 0)); break;
-		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateGlobal(glm::vec3(crawl, 0, 0)); break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl): glm::vec3(0, crawl, 0)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateGlobal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
-		case GLFW_KEY_Z: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 0, 1), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
-		case GLFW_KEY_X: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(1, 0, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
-		case GLFW_KEY_Y: gCameras[gActiveCamera]->rotateGlobal(glm::vec3(0, 1, 0), glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? -crawl : crawl); break;
+		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateLocal(glm::vec3(-crawl, 0, 0)); break;
+		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateLocal(glm::vec3(crawl, 0, 0)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl) : glm::vec3(0, crawl, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
+		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
+		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
+		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
+		case GLFW_KEY_S: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), -crawl); break;
+		case GLFW_KEY_A: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), crawl); break;
+		case GLFW_KEY_D: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), -crawl); break;
 		}
 	}
 
@@ -127,6 +137,12 @@ void loadWorldSettings(FILE *F)
 	// Initialize the window with OpenGL context
 	gWindow = createOpenGLWindow(gWidth, gHeight, gWindowTitle.c_str(), gSPP);
 	glfwSetKeyCallback(gWindow, keyCallback);
+
+	// Generate a buffer that will send the lights to OpenGL.
+	glGenBuffers(1, &gLightsUBO);
+	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(gLights), nullptr, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 void loadMesh(FILE *F)
@@ -169,6 +185,7 @@ void loadMaterial(FILE *F)
 		}
 		else if (token == "diffuseColor") getFloats(F, &(m->diffuseColor[0]), 4);
 		else if (token == "specularColor") getFloats(F, &(m->specularColor[0]), 4);
+		else if (token == "specularExponent") getFloats(F, &(m->specularExponent), 1);
 		else if (token == "ambientIntensity") getFloats(F, &(m->ambientIntensity[0]), 4);
 		else if (token == "emissiveColor") getFloats(F, &(m->emissiveColor[0]), 4);
 		else if (token == "diffuseTexture") {
@@ -178,10 +195,48 @@ void loadMaterial(FILE *F)
 			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->loadPNG(texFileName);
 			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->sendToOpenGL();
 		}
+		else if (token == "specularTexture") {
+			string texFileName;
+			getToken(F, texFileName, ONE_TOKENS);
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::SPECULAR]->loadPNG(texFileName);
+			//m->textures[Material::TEXTURE_TYPE::SPECULAR]->sendToOpenGL();
+		}
+		else if (token == "specularExponentTexture") {
+			string texFileName;
+			getToken(F, texFileName, ONE_TOKENS);
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::SPECULAR_EXPONENT]->loadPNG(texFileName);
+			//m->textures[Material::TEXTURE_TYPE::SPECULAR_EXPONENT]->sendToOpenGL();
+		}
+		else if (token == "emissiveTexture") {
+			string texFileName;
+			getToken(F, texFileName, ONE_TOKENS);
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::EMISSIVE]->loadPNG(texFileName);
+			//m->textures[Material::TEXTURE_TYPE::EMISSIVE]->sendToOpenGL();
+		}
+		else if (token == "normalMap") {
+			string texFileName;
+			getToken(F, texFileName, ONE_TOKENS);
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::NORMAL]->loadPNG(texFileName);
+			//m->textures[Material::TEXTURE_TYPE::NORMAL]->sendToOpenGL();
+		}
+		else if (token == "envReflectionMap") {
+			string texFileName;
+			getToken(F, texFileName, ONE_TOKENS);
+			m->textures.push_back(new RGBAImage());
+			m->textures[Material::TEXTURE_TYPE::REFLECTION]->loadPNG(texFileName);
+			//m->textures[Material::TEXTURE_TYPE::REFLECTION]->sendToOpenGL();
+		}
 	}
 
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
-	m->getAndInitUniforms();
+	m->gLightsHandle = new vector<Light*>;
+	*m->gLightsHandle = gLights;
+	m->setLightUBOHandle(gLightsUBO);
+	m->getAndInitUniforms(MAX_LIGHTS);
 	if (materialName != "") gMaterials[materialName] = m;
 }
 
@@ -220,6 +275,8 @@ void loadLight(FILE *F)
 {	
 	string token;
 	
+	if (gLights.size() == MAX_LIGHTS) ERROR("Too many lights in scene.");
+
 	gLights.push_back(new Light());
 
 	while (getToken(F, token, ONE_TOKENS)) {
@@ -231,6 +288,7 @@ void loadLight(FILE *F)
 			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL;
 			else if (lightType == "spot") gLights.back()->type = Light::LIGHT_TYPE::SPOT_LIGHT;
 		}
+		else if (token == "intensity") getFloats(F, &(gLights.back()->intensity[0]), 3);
 		else if (token == "position") getFloats(F, &(gLights.back()->position[0]), 3);
 		else if (token == "direction") getFloats(F, &(gLights.back()->direction[0]), 3);
 		else if (token == "attenuation") getFloats(F, &(gLights.back()->attenuation[0]), 3);
@@ -262,6 +320,10 @@ void loadScene(const char *sceneFile)
 	if (!gMeshes.empty()) gMeshes.clear();
 	if (!gMeshInstances.empty()) gMeshInstances.clear();
 	if (!gCameras.empty()) gCameras.clear();
+	if (!gMaterials.empty()) gMaterials.clear();
+	if (!gLights.empty()) gLights.clear(); 
+	if (gLightsUBO != NULL_HANDLE) glDeleteBuffers(1, &gLightsUBO);
+	gLightsUBO = NULL_HANDLE;
 
 	//Add the path used for the scene to the EngineUtil's PATH variable.
 	string sceneFileName = sceneFile;
@@ -298,6 +360,7 @@ void update(void)
 		glfwTerminate();
 		loadScene(gSceneFileNames[gActiveScene]);
 	}
+
 	///*
 	//// move mesh instance
 	//gMeshInstance.translation[0] += 0.003f;
