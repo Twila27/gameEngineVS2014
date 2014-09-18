@@ -101,6 +101,7 @@ ISound *loadSound();
 class RGBAImage
 {
 public:
+	GLuint id; //Uniform loc.
 	string name;
 	vector<unsigned char> pixels;
 	unsigned int width, height;
@@ -206,10 +207,11 @@ public:
 //-------------------------------------------------------------------------//
 
 struct Light {
+	//72 bytes = 4 int/float + 4 vec4.
 	enum LIGHT_TYPE { POINT, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
 	LIGHT_TYPE type;
-	int alpha, theta; //Angles we can use for spotlights?
-	int pad; //Ensures this + type = 16 bytes as below, to allow us to make a vec4 array to access lights in shader.
+	float alpha, theta; //Angles we can use for spotlights?
+	int isOn;
 	glm::vec4 intensity; //A color.
 	glm::vec4 position;
 	glm::vec4 direction;
@@ -262,7 +264,7 @@ public:
 	~Material(void)	{ for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; }
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
 	void setLightUBOHandle(GLuint lightUBOHandle) { this->lightUBOHandle = lightUBOHandle; }
-	void getAndInitUniforms(int maxLights)
+	void getAndInitUniforms()
 	{ //Placing this code here potentially enables shader program swaps. Can move it to the .cpp though.
 
 		if (shaderProgramHandle == NULL_HANDLE) {
@@ -274,35 +276,23 @@ public:
 
 		GLint loc;
 
-		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
-		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
-#ifdef _DEBUG
-		else ERROR("Failure getting diffuse color uniform.");
-#endif 
+		/* MATERIAL TEXTURES
+		for (int i = 0; i < (int)textures.size(); i++) {
+			//name.c_str() matches uniform name if image is named uniform name.
+			loc = glGetUniformLocation(shaderProgramHandle, textures[i]->name.substr(0, textures[i]->name.find_first_of('.')).c_str()); 
+			textures[i]->id = loc;
+			if (textures[i]->id >= 0) {
+				glActiveTexture(GL_TEXTURE0 + i);
+				glUniform1i(textures[i]->id, i);
+				glBindTexture(GL_TEXTURE_2D, textures[i]->textureId);
+				glBindSampler(textures[i]->id, textures[i]->samplerId);
+			}
+		}*/
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseTex");
 		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::DIFFUSE]).samplerId);
 #ifdef _DEBUG
 		else ERROR("Failure getting diffuse texture uniform.");
-#endif 
-		//printVec(color);
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
-		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
-#ifdef _DEBUG
-		else ERROR("Failure getting ambient intensity uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
-		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
-#ifdef _DEBUG
-		else ERROR("Failure getting specular color uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
-		if (loc != -1) glUniform1f(loc, specularExponent);
-#ifdef _DEBUG
-		else ERROR("Failure getting specular exponent uniform.");
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularTex");
@@ -312,7 +302,7 @@ public:
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponentTex");
-		if (loc != -1) glUniform1f(loc, (*textures[TEXTURE_TYPE::SPECULAR_EXPONENT]).samplerId);
+		if (loc != -1) glUniform1i(loc, (*textures[TEXTURE_TYPE::SPECULAR_EXPONENT]).samplerId);
 #ifdef _DEBUG
 		else ERROR("Failure getting specular exponent texture uniform.");
 #endif 
@@ -333,10 +323,36 @@ public:
 		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::REFLECTION]).samplerId);
 #ifdef _DEBUG
 		else ERROR("Failure getting environment reflection map uniform.");
+#endif
+		
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
+		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
+#ifdef _DEBUG
+		else ERROR("Failure getting diffuse color uniform.");
 #endif 
 
-		loc = glGetUniformLocation(shaderProgramHandle, "uActiveLights");
-		if (loc != -1) glUniform1i(loc, maxLights);
+		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
+		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
+#ifdef _DEBUG
+		else ERROR("Failure getting ambient intensity uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
+		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular color uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
+		if (loc != -1) glUniform1f(loc, specularExponent);
+#ifdef _DEBUG
+		else ERROR("Failure getting specular exponent uniform.");
+#endif 
+
+		loc = glGetUniformLocation(shaderProgramHandle, "uLoadedLights");
+		updatingUniforms["uLoadedLights"] = loc;
+		if (loc != -1) glUniform1i(loc, gLightsHandle->size());
 #ifdef _DEBUG
 		else ERROR("Failure getting max lights uniform.");
 #endif 

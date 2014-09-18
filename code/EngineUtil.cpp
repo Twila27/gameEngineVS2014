@@ -665,6 +665,9 @@ void TriMeshInstance::draw(Camera &camera)
 	else ERROR("Failure getting lights uniform block.");
 #endif
 
+	loc = instanceMaterial->updatingUniforms["uLoadedLights"];
+	if (loc != -1) glUniform1i(loc, instanceMaterial->gLightsHandle->size());
+
 	triMesh->draw();
 }
 //-------------------------------------------------------------------------//

@@ -30,7 +30,7 @@ vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
 vector<Light*> gLights;
-const int MAX_LIGHTS = 8;
+int gMaxLights = 8;
 GLuint gLightsUBO;
 
 //These will not change until their keys are pressed.
@@ -73,8 +73,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			}
 			else gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
 			break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
 		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
 		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
 		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
@@ -89,8 +89,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		switch (key) {
 		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateLocal(glm::vec3(-crawl, 0, 0)); break;
 		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateLocal(glm::vec3(crawl, 0, 0)); break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl) : glm::vec3(0, crawl, 0)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl) : glm::vec3(0, crawl, 0)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
 		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
 		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
 		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
@@ -132,6 +132,7 @@ void loadWorldSettings(FILE *F)
 			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 
 			
 		}
+		else if (token == "maxLights") getInts(F, &gMaxLights, 1);
 	}
 
 	// Initialize the window with OpenGL context
@@ -236,7 +237,7 @@ void loadMaterial(FILE *F)
 	m->gLightsHandle = new vector<Light*>;
 	*m->gLightsHandle = gLights;
 	m->setLightUBOHandle(gLightsUBO);
-	m->getAndInitUniforms(MAX_LIGHTS);
+	m->getAndInitUniforms();
 	if (materialName != "") gMaterials[materialName] = m;
 }
 
@@ -275,7 +276,7 @@ void loadLight(FILE *F)
 {	
 	string token;
 	
-	if (gLights.size() == MAX_LIGHTS) ERROR("Too many lights in scene.");
+	if (gLights.size() == gMaxLights) ERROR("Too many lights in scene.");
 
 	gLights.push_back(new Light());
 
@@ -288,6 +289,9 @@ void loadLight(FILE *F)
 			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL;
 			else if (lightType == "spot") gLights.back()->type = Light::LIGHT_TYPE::SPOT_LIGHT;
 		}
+		else if (token == "isOn") getInts(F, &(gLights.back()->isOn), 1);
+		else if (token == "alpha") getFloats(F, &(gLights.back()->alpha), 1);
+		else if (token == "theta") getFloats(F, &(gLights.back()->theta), 1);
 		else if (token == "intensity") getFloats(F, &(gLights.back()->intensity[0]), 3);
 		else if (token == "position") getFloats(F, &(gLights.back()->position[0]), 3);
 		else if (token == "direction") getFloats(F, &(gLights.back()->direction[0]), 3);
