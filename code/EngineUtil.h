@@ -28,6 +28,7 @@ using namespace std;
 
 // OpenGL related includes
 #define GLM_FORCE_RADIANS
+//#define PRINT_GLSL //Uncomment to print full shader code, separated to speed up Debug build time.
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -237,6 +238,7 @@ public:
 	GLuint vao; // vertex array handle
 	GLuint ibo; // index buffer handle
 	
+	~TriMesh() { glDeleteBuffers(1, &vao); glDeleteBuffers(1, &ibo); }
 	void setName(const string &str) { name = str; }
 	bool readFromPly(const string &fileName, bool flipZ = false);
 	bool sendToOpenGL(void);
@@ -246,7 +248,6 @@ public:
 class Material
 {
 public:
-	enum TEXTURE_TYPE { DIFFUSE, SPECULAR, SPECULAR_EXPONENT, EMISSIVE, NORMAL, REFLECTION };
 	GLuint shaderProgramHandle; //Currently in instance class.
 	GLuint lightUBOHandle; 
 	vector<Light*>* gLightsHandle; //Used in TriMeshInstance::draw() to send lights to pixel shader via above UBO.
@@ -261,7 +262,11 @@ public:
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
 	Material(void);
-	~Material(void)	{ for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; }
+	~Material(void) 
+	{ 
+		for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; 
+		glDeleteProgram(shaderProgramHandle);
+	}
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
 	void setLightUBOHandle(GLuint lightUBOHandle) { this->lightUBOHandle = lightUBOHandle; }
 	void getAndInitUniforms()
@@ -276,98 +281,79 @@ public:
 
 		GLint loc;
 
-		/* MATERIAL TEXTURES
-		for (int i = 0; i < (int)textures.size(); i++) {
-			//name.c_str() matches uniform name if image is named uniform name.
-			loc = glGetUniformLocation(shaderProgramHandle, textures[i]->name.substr(0, textures[i]->name.find_first_of('.')).c_str()); 
-			textures[i]->id = loc;
-			if (textures[i]->id >= 0) {
-				glActiveTexture(GL_TEXTURE0 + i);
-				glUniform1i(textures[i]->id, i);
-				glBindTexture(GL_TEXTURE_2D, textures[i]->textureId);
-				glBindSampler(textures[i]->id, textures[i]->samplerId);
+		//Set up textures.
+		for (int i = 0; i < textures.size(); ++i) {
+			loc = textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
+			if (loc != -1) {
+				glGenSamplers(1, &textures[i]->samplerId);
+				glGenTextures(1, &textures[i]->textureId);
+
+				glActiveTexture(GL_TEXTURE0 + i); //Set active texture unit in GL context.
+				glUniform1i(textures[i]->id, i); //Set the handle to the texture being used?
+
+				//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
+				//glGenerateMipmap(GL_TEXTURE_2D);
+
+				if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
+				else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
+				glBindSampler(textures[i]->textureId, textures[i]->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
+				//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			}
-		}*/
+			#ifdef _DEBUG
+			else ERROR("Failure in texture setup loop.", false);
+			#endif
+		}
 
-		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseTex");
-		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::DIFFUSE]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting diffuse texture uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularTex");
-		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::SPECULAR]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting specular texture uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponentTex");
-		if (loc != -1) glUniform1i(loc, (*textures[TEXTURE_TYPE::SPECULAR_EXPONENT]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting specular exponent texture uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uEmissiveTex");
-		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::EMISSIVE]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting emissive texture uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uNormalMap");
-		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::NORMAL]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting normal map uniform.");
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uEnvironmentReflectionMap");
-		if (loc != -1) glBindSampler(loc, (*textures[TEXTURE_TYPE::REFLECTION]).samplerId);
-#ifdef _DEBUG
-		else ERROR("Failure getting environment reflection map uniform.");
-#endif
-		
-
+		//Set up non-textures.
 		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
 		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting diffuse color uniform.");
+		else ERROR("Failure getting diffuse color uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
 		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting ambient intensity uniform.");
+		else ERROR("Failure getting ambient intensity uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
 		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting specular color uniform.");
+		else ERROR("Failure getting specular color uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
 		if (loc != -1) glUniform1f(loc, specularExponent);
 #ifdef _DEBUG
-		else ERROR("Failure getting specular exponent uniform.");
+		else ERROR("Failure getting specular exponent uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uLoadedLights");
 		updatingUniforms["uLoadedLights"] = loc;
 		if (loc != -1) glUniform1i(loc, gLightsHandle->size());
 #ifdef _DEBUG
-		else ERROR("Failure getting max lights uniform.");
+		else ERROR("Failure getting max lights uniform.", false);
 #endif 
 
+		//Fill UBO at lightUBOHandle, copy into buffer w/o glBufferData()'s allocation.
+		glBindBuffer(GL_UNIFORM_BUFFER, lightUBOHandle); //Bind to target.
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*gLightsHandle->size(), gLightsHandle); 
+		//^We know this much works because we see the sudden data change for the UBO on gDEBugger.
+
+		//Attach UBO to uniform block in GLSL.
 		loc = glGetUniformBlockIndex(shaderProgramHandle, "ubGlobalLights");
 		updatingUniforms["ubGlobalLights"] = loc;
 		if (loc != -1) {
-			//Set the uniform block up with initial data.
-			glBindBuffer(GL_UNIFORM_BUFFER, lightUBOHandle);
-			glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(*gLightsHandle), (void*)&(*gLightsHandle)); //Copy data into buffer w/o glBufferData()'s allocation.
-			glBindBuffer(GL_UNIFORM_BUFFER, 0);
+			glUniformBlockBinding(shaderProgramHandle, loc, 1); //Associates UB to binding point 1.
+			glBindBufferBase(GL_UNIFORM_BUFFER, 1, lightUBOHandle); //Associates UBO to binding point 1.
 		}
+		glBindBuffer(GL_UNIFORM_BUFFER, 0); //Unbind.
 #ifdef _DEBUG
-		else ERROR("Failure getting lights uniform block.");
+		if (loc == -1) ERROR("Failure getting lights uniform block.", false);
 #endif 
+		glUseProgram(0);
 	}
 };
 
@@ -381,7 +367,7 @@ public:
 	
 public:
 	TriMeshInstance(void);
-    
+
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
 	void setMaterial(Material *material) { instanceMaterial = material; }
 	void setDiffuseColor(const glm::vec4 &c) { instanceMaterial->diffuseColor = c; }

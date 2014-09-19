@@ -30,7 +30,7 @@ vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
 vector<Light*> gLights;
-int gMaxLights = 8;
+const int MAX_LIGHTS = 8;
 GLuint gLightsUBO;
 
 //These will not change until their keys are pressed.
@@ -63,7 +63,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
 				gShouldSwapScene = true;
 			}
-			else gCameras[gActiveCamera]->translateGlobal(glm::vec3(-step, 0, 0));
+			else gCameras[gActiveCamera]->translateLocal(glm::vec3(-step, 0, 0));
 			break;
 		case GLFW_KEY_RIGHT:
 			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
@@ -73,14 +73,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			}
 			else gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
 			break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, step, 0)); break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, -step, 0)); break;
-		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
-		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
-		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
-		case GLFW_KEY_S: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), -crawl); break;
-		case GLFW_KEY_A: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), crawl); break;
-		case GLFW_KEY_D: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), -crawl); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -step) : glm::vec3(0, step, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, step) : glm::vec3(0, -step, 0)); break;
+		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), step); break;
+		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -step); break;
+		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), step); break;
+		case GLFW_KEY_S: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), -step); break;
+		case GLFW_KEY_A: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), step); break;
+		case GLFW_KEY_D: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 1, 0), -step); break;
 		}
 	}
 
@@ -89,8 +89,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		switch (key) {
 		case GLFW_KEY_LEFT: gCameras[gActiveCamera]->translateLocal(glm::vec3(-crawl, 0, 0)); break;
 		case GLFW_KEY_RIGHT: gCameras[gActiveCamera]->translateLocal(glm::vec3(crawl, 0, 0)); break;
-		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl) : glm::vec3(0, crawl, 0)); break;
-		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, -crawl, 0)); break;
+		case GLFW_KEY_UP: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, -crawl) : glm::vec3(0, crawl, 0)); break;
+		case GLFW_KEY_DOWN: gCameras[gActiveCamera]->translateLocal(glfwGetKey(window, GLFW_KEY_LEFT_ALT) ? glm::vec3(0, 0, crawl) : glm::vec3(0, -crawl, 0)); break;
 		case GLFW_KEY_Q: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), crawl); break;
 		case GLFW_KEY_E: gCameras[gActiveCamera]->rotateLocal(glm::vec3(0, 0, 1), -crawl); break;
 		case GLFW_KEY_W: gCameras[gActiveCamera]->rotateLocal(glm::vec3(1, 0, 0), crawl); break;
@@ -129,10 +129,8 @@ void loadWorldSettings(FILE *F)
 			getFullFileName(fileName, fullFileName);
 			
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
-			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 
-			
+			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 		
 		}
-		else if (token == "maxLights") getInts(F, &gMaxLights, 1);
 	}
 
 	// Initialize the window with OpenGL context
@@ -142,7 +140,7 @@ void loadWorldSettings(FILE *F)
 	// Generate a buffer that will send the lights to OpenGL.
 	glGenBuffers(1, &gLightsUBO);
 	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(gLights), nullptr, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec4)*5*MAX_LIGHTS, nullptr, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
@@ -189,47 +187,12 @@ void loadMaterial(FILE *F)
 		else if (token == "specularExponent") getFloats(F, &(m->specularExponent), 1);
 		else if (token == "ambientIntensity") getFloats(F, &(m->ambientIntensity[0]), 4);
 		else if (token == "emissiveColor") getFloats(F, &(m->emissiveColor[0]), 4);
-		else if (token == "diffuseTexture") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
+		else if (token == "texture") {
 			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->loadPNG(texFileName);
-			m->textures[Material::TEXTURE_TYPE::DIFFUSE]->sendToOpenGL();
-		}
-		else if (token == "specularTexture") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
-			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::SPECULAR]->loadPNG(texFileName);
-			//m->textures[Material::TEXTURE_TYPE::SPECULAR]->sendToOpenGL();
-		}
-		else if (token == "specularExponentTexture") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
-			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::SPECULAR_EXPONENT]->loadPNG(texFileName);
-			//m->textures[Material::TEXTURE_TYPE::SPECULAR_EXPONENT]->sendToOpenGL();
-		}
-		else if (token == "emissiveTexture") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
-			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::EMISSIVE]->loadPNG(texFileName);
-			//m->textures[Material::TEXTURE_TYPE::EMISSIVE]->sendToOpenGL();
-		}
-		else if (token == "normalMap") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
-			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::NORMAL]->loadPNG(texFileName);
-			//m->textures[Material::TEXTURE_TYPE::NORMAL]->sendToOpenGL();
-		}
-		else if (token == "envReflectionMap") {
-			string texFileName;
-			getToken(F, texFileName, ONE_TOKENS);
-			m->textures.push_back(new RGBAImage());
-			m->textures[Material::TEXTURE_TYPE::REFLECTION]->loadPNG(texFileName);
-			//m->textures[Material::TEXTURE_TYPE::REFLECTION]->sendToOpenGL();
+			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
+			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
+			m->textures.back()->loadPNG(texFileName);
+			m->textures.back()->sendToOpenGL();
 		}
 	}
 
@@ -276,7 +239,7 @@ void loadLight(FILE *F)
 {	
 	string token;
 	
-	if (gLights.size() == gMaxLights) ERROR("Too many lights in scene.");
+	if (gLights.size() == MAX_LIGHTS) ERROR("Too many lights in scene.");
 
 	gLights.push_back(new Light());
 
@@ -467,12 +430,12 @@ int main(int numArgs, char **args)
 	soundEngine->drop(); // delete engine
     
 	// Close OpenGL window and terminate GLFW
-	glfwTerminate();
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
 	for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
 	for (auto it = gMeshInstances.begin(); it != gMeshInstances.end(); ++it) delete *it;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
+	glfwTerminate();
 	return 0;
 }
 

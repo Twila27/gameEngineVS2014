@@ -90,7 +90,7 @@ GLuint loadShader(const string &fileName, GLuint shaderType)
 
     
 	// print the shader code
-	#ifdef _DEBUG
+	#ifdef PRINT_GLSL
 	cout << "\n----------------------------------------------- SHADER CODE:\n";
 	cout << shaderCode << endl;
 	cout << "--------------------------------------------------------------\n";
@@ -379,7 +379,7 @@ bool RGBAImage::loadPNG(const string &fileName, bool doFlipY)
 	}
 
 	if (doFlipY) flipY(); // PNGs go top-to-bottom, OpenGL is bottom-to-top
-	name = fileName;
+	//name = fileName;
 	return true;
 }
 
@@ -414,15 +414,15 @@ void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipM
 {
 	if (width <= 0 || height <= 0) return;
 
-	glGenTextures(1, &textureId);
-	glBindTexture(GL_TEXTURE_2D, textureId);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &pixels[0]);
-	if (createMipMap) glGenerateMipmap(GL_TEXTURE_2D);
+	//glGenTextures(1, &textureId);
+	//glBindTexture(GL_TEXTURE_2D, textureId); //Handled in Material init for uniforms.
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &pixels[0]); //<-- Why?
+	//if (createMipMap) glGenerateMipmap(GL_TEXTURE_2D);
 
-	glGenSamplers(1, &samplerId);
-	glBindSampler(textureId, samplerId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	//glGenSamplers(1, &samplerId);
+	//glBindSampler(textureId, samplerId);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 }
 
 //-------------------------------------------------------------------------//
@@ -582,6 +582,8 @@ bool TriMesh::sendToOpenGL(void)
                  &indices[0], GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // unbind
     
+	glDeleteBuffers(1, &vbo);
+
 	return true;
 }
 
@@ -612,8 +614,8 @@ Material::Material(void)
 
 TriMeshInstance::TriMeshInstance(void)
 {
-	triMesh = NULL;
-	instanceMaterial = NULL;
+	triMesh = nullptr;
+	instanceMaterial = nullptr;
     
 	instanceTransform.scale = glm::vec3(1, 1, 1);
 	instanceTransform.translation = glm::vec3(0, 0, 0);
@@ -648,7 +650,7 @@ void TriMeshInstance::draw(Camera &camera)
 	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uViewDirection");
-	if (loc != -1) glUniform3fv(loc, 1, glm::value_ptr(camera.eye));
+	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
 #ifdef _DEBUG
 	else ERROR("Could not load uniform uViewDirection.");
 #endif
@@ -658,7 +660,7 @@ void TriMeshInstance::draw(Camera &camera)
 	if (loc != -1) {
 		//Set the uniform block up.
 		glBindBuffer(GL_UNIFORM_BUFFER, instanceMaterial->lightUBOHandle);
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(*instanceMaterial->gLightsHandle), (void*)&(*instanceMaterial->gLightsHandle)); //Copy data into buffer w/o glBufferData()'s allocation.
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*instanceMaterial->gLightsHandle->size(), instanceMaterial->gLightsHandle); //Copy data into buffer w/o glBufferData()'s allocation.
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 #ifdef _DEBUG
