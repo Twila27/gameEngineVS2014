@@ -29,7 +29,7 @@ vector<TriMeshInstance*> gMeshInstances;
 vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
-vector<Light*> gLights;
+vector<Light> gLights;
 const int MAX_LIGHTS = 8;
 GLuint gLightsUBO;
 
@@ -197,7 +197,7 @@ void loadMaterial(FILE *F)
 	}
 
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
-	m->gLightsHandle = new vector<Light*>;
+	m->gLightsHandle = new vector<Light>;
 	*m->gLightsHandle = gLights;
 	m->setLightUBOHandle(gLightsUBO);
 	m->getAndInitUniforms();
@@ -241,24 +241,26 @@ void loadLight(FILE *F)
 	
 	if (gLights.size() == MAX_LIGHTS) ERROR("Too many lights in scene.");
 
-	gLights.push_back(new Light());
+	gLights.push_back(Light());
+	gLights.back().isOn = 1;
+	gLights.back().alpha = gLights.back().theta = 0;
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
 		else if (token == "type") {
 			string lightType;
 			getToken(F, lightType, ONE_TOKENS);
-			if (lightType == "point") gLights.back()->type = Light::LIGHT_TYPE::POINT;
-			else if (lightType == "directional") gLights.back()->type = Light::LIGHT_TYPE::DIRECTIONAL;
-			else if (lightType == "spot") gLights.back()->type = Light::LIGHT_TYPE::SPOT_LIGHT;
+			if (lightType == "point") gLights.back().type = Light::LIGHT_TYPE::POINT;
+			else if (lightType == "directional") gLights.back().type = Light::LIGHT_TYPE::DIRECTIONAL;
+			else if (lightType == "spot") gLights.back().type = Light::LIGHT_TYPE::SPOT_LIGHT;
 		}
-		else if (token == "isOn") getInts(F, &(gLights.back()->isOn), 1);
-		else if (token == "alpha") getFloats(F, &(gLights.back()->alpha), 1);
-		else if (token == "theta") getFloats(F, &(gLights.back()->theta), 1);
-		else if (token == "intensity") getFloats(F, &(gLights.back()->intensity[0]), 3);
-		else if (token == "position") getFloats(F, &(gLights.back()->position[0]), 3);
-		else if (token == "direction") getFloats(F, &(gLights.back()->direction[0]), 3);
-		else if (token == "attenuation") getFloats(F, &(gLights.back()->attenuation[0]), 3);
+		else if (token == "isOn") getInts(F, &(gLights.back().isOn), 1);
+		else if (token == "alpha") getFloats(F, &(gLights.back().alpha), 1);
+		else if (token == "theta") getFloats(F, &(gLights.back().theta), 1);
+		else if (token == "intensity") getFloats(F, &(gLights.back().intensity[0]), 3);
+		else if (token == "position") getFloats(F, &(gLights.back().position[0]), 3);
+		else if (token == "direction") getFloats(F, &(gLights.back().direction[0]), 3);
+		else if (token == "attenuation") getFloats(F, &(gLights.back().attenuation[0]), 3);
 	}
 }
 
@@ -431,7 +433,7 @@ int main(int numArgs, char **args)
     
 	// Close OpenGL window and terminate GLFW
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
-	for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
+	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
 	for (auto it = gMeshInstances.begin(); it != gMeshInstances.end(); ++it) delete *it;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;

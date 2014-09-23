@@ -638,21 +638,27 @@ void TriMeshInstance::draw(Camera &camera)
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.transform));
+#ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldM.", false);
+#endif
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldInverseM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.invTransform));
+#ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
+#endif
 
 	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * instanceTransform.transform;
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectPerpsectM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
+#ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
+#endif
 
 	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uViewDirection");
 	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
 #ifdef _DEBUG
-	else ERROR("Could not load uniform uViewDirection.");
+	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
 	//We run this once in our init uniforms in Material, but here thereafter for when lights are updated.
@@ -660,7 +666,7 @@ void TriMeshInstance::draw(Camera &camera)
 	if (loc != -1) {
 		//Set the uniform block up.
 		glBindBuffer(GL_UNIFORM_BUFFER, instanceMaterial->lightUBOHandle);
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*instanceMaterial->gLightsHandle->size(), instanceMaterial->gLightsHandle); //Copy data into buffer w/o glBufferData()'s allocation.
+		//glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*instanceMaterial->gLightsHandle->size(), instanceMaterial->gLightsHandle); //Copy data into buffer w/o glBufferData()'s allocation.
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 #ifdef _DEBUG

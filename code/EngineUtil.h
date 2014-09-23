@@ -209,7 +209,7 @@ public:
 
 struct Light {
 	//72 bytes = 4 int/float + 4 vec4.
-	enum LIGHT_TYPE { POINT, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
+	enum class LIGHT_TYPE : int { POINT = 27, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
 	LIGHT_TYPE type;
 	float alpha, theta; //Angles we can use for spotlights?
 	int isOn;
@@ -250,7 +250,7 @@ class Material
 public:
 	GLuint shaderProgramHandle; //Currently in instance class.
 	GLuint lightUBOHandle; 
-	vector<Light*>* gLightsHandle; //Used in TriMeshInstance::draw() to send lights to pixel shader via above UBO.
+	vector<Light>* gLightsHandle; //Used in TriMeshInstance::draw() to send lights to pixel shader via above UBO.
 	map<string, int> updatingUniforms; //Holds all uniforms locations indicated by their uniform name.
 	glm::vec4 diffuseColor;
 	glm::vec4 specularColor;
@@ -291,14 +291,14 @@ public:
 				glActiveTexture(GL_TEXTURE0 + i); //Set active texture unit in GL context.
 				glUniform1i(textures[i]->id, i); //Set the handle to the texture being used?
 
-				//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
-				//glGenerateMipmap(GL_TEXTURE_2D);
-
 				if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
 				else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
+				glGenerateMipmap(GL_TEXTURE_2D);
+
 				glBindSampler(textures[i]->textureId, textures[i]->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
-				//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			}
 			#ifdef _DEBUG
 			else ERROR("Failure in texture setup loop.", false);
@@ -339,7 +339,7 @@ public:
 
 		//Fill UBO at lightUBOHandle, copy into buffer w/o glBufferData()'s allocation.
 		glBindBuffer(GL_UNIFORM_BUFFER, lightUBOHandle); //Bind to target.
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*gLightsHandle->size(), gLightsHandle); 
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, gLightsHandle->size() * sizeof(Light), (void*)gLightsHandle);
 		//^We know this much works because we see the sudden data change for the UBO on gDEBugger.
 
 		//Attach UBO to uniform block in GLSL.
