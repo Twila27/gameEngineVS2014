@@ -47,8 +47,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -59,7 +58,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\lib\Release\Win32;C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glew32.lib;OpenGL32.lib;irrKlang.lib;glfw3dll.lib</AdditionalDependencies>
+      <AdditionalDependencies>glfw3dll.lib;glew32.lib;OpenGL32.lib;irrKlang.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
@@ -67,8 +66,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>

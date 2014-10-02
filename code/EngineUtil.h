@@ -204,12 +204,12 @@ public:
 };
 
 //-------------------------------------------------------------------------//
-// LIGHT SOURCE
+// LIGHT
 //-------------------------------------------------------------------------//
 
 struct Light {
 	//72 bytes = 4 int/float + 4 vec4.
-	enum class LIGHT_TYPE : int { POINT = 27, DIRECTIONAL, SPOT_LIGHT, HEMISPHERICAL };
+	enum class LIGHT_TYPE : int { POINT = 1, DIRECTIONAL, SPOT_LIGHT, AMBIENT, HEAD_LIGHT, RIM_LIGHT };
 	LIGHT_TYPE type;
 	float alpha, theta; //Angles we can use for spotlights?
 	int isOn;
@@ -222,8 +222,15 @@ struct Light {
 		: type(type), position(pos), direction(dir), attenuation(atten) { }
 };
 
+#define MAX_LIGHTS 8
+extern GLuint gLightsUBO;
+extern int gNumLights;
+extern Light gLights[MAX_LIGHTS];
+
+void initLightBuffer(void);
+
 //-------------------------------------------------------------------------//
-// TRIANGLE MESH
+// MESH & MATERIAL
 //-------------------------------------------------------------------------//
 
 class TriMesh
@@ -250,14 +257,13 @@ class Material
 public:
 	GLuint shaderProgramHandle; //Currently in instance class.
 	GLuint lightUBOHandle; 
-	vector<Light>* gLightsHandle; //Used in TriMeshInstance::draw() to send lights to pixel shader via above UBO.
-	map<string, int> updatingUniforms; //Holds all uniforms locations indicated by their uniform name.
 	glm::vec4 diffuseColor;
 	glm::vec4 specularColor;
 	float specularExponent; //Shiny factor.
 	glm::vec4 ambientIntensity;
 	glm::vec4 emissiveColor;
 	vector<RGBAImage*> textures;
+	vector<glm::vec4> colors; //!
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
@@ -282,7 +288,7 @@ public:
 		GLint loc;
 
 		//Set up textures.
-		for (int i = 0; i < textures.size(); ++i) {
+		for (int i = 0; i < (int)textures.size(); ++i) {
 			loc = textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
 			if (loc != -1) {
 				glGenSamplers(1, &textures[i]->samplerId);
@@ -293,6 +299,10 @@ public:
 
 				if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
 				else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
+
+				//Important find--glBindTexture() needs to be called BEFORE glTexImage2D(), to not generate a bunch of stupid empty images every time.
+				//Note that we axed the sendToOpenGL() method of RGBAImage*, all that code is here.
+
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
 				glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -328,30 +338,6 @@ public:
 		if (loc != -1) glUniform1f(loc, specularExponent);
 #ifdef _DEBUG
 		else ERROR("Failure getting specular exponent uniform.", false);
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uLoadedLights");
-		updatingUniforms["uLoadedLights"] = loc;
-		if (loc != -1) glUniform1i(loc, gLightsHandle->size());
-#ifdef _DEBUG
-		else ERROR("Failure getting max lights uniform.", false);
-#endif 
-
-		//Fill UBO at lightUBOHandle, copy into buffer w/o glBufferData()'s allocation.
-		glBindBuffer(GL_UNIFORM_BUFFER, lightUBOHandle); //Bind to target.
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, gLightsHandle->size() * sizeof(Light), (void*)gLightsHandle);
-		//^We know this much works because we see the sudden data change for the UBO on gDEBugger.
-
-		//Attach UBO to uniform block in GLSL.
-		loc = glGetUniformBlockIndex(shaderProgramHandle, "ubGlobalLights");
-		updatingUniforms["ubGlobalLights"] = loc;
-		if (loc != -1) {
-			glUniformBlockBinding(shaderProgramHandle, loc, 1); //Associates UB to binding point 1.
-			glBindBufferBase(GL_UNIFORM_BUFFER, 1, lightUBOHandle); //Associates UBO to binding point 1.
-		}
-		glBindBuffer(GL_UNIFORM_BUFFER, 0); //Unbind.
-#ifdef _DEBUG
-		if (loc == -1) ERROR("Failure getting lights uniform block.", false);
 #endif 
 		glUseProgram(0);
 	}

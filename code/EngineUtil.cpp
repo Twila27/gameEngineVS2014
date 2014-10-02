@@ -17,7 +17,12 @@
 void ERROR(const string &msg, bool doExit)
 {
 	cerr << "\nERROR! " << msg << endl;
-	if (doExit) exit(0);
+	if (doExit) {
+		#ifdef _DEBUG
+		cin >> doExit;
+		#endif
+		exit(0);
+	}
 }
 
 double TIME(void)
@@ -148,6 +153,11 @@ GLuint createShaderProgram(GLuint vertexShader, GLuint fragmentShader)
 		return NULL_HANDLE;
 	}
     
+	//Attach UBO to uniform block in GLSL via the same binding point.
+	GLint locLightUB = glGetUniformBlockIndex(shaderProgram, "ubGlobalLights");
+	glUniformBlockBinding(shaderProgram, locLightUB, 1); //Associates UB to binding point 1.
+	glBindBufferBase(GL_UNIFORM_BUFFER, 1, gLightsUBO); //Associates UBO to binding point 1. 
+
 	return shaderProgram;
 }
 
@@ -661,22 +671,27 @@ void TriMeshInstance::draw(Camera &camera)
 	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
-	//We run this once in our init uniforms in Material, but here thereafter for when lights are updated.
-	loc = instanceMaterial->updatingUniforms["ubGlobalLights"];
-	if (loc != -1) {
-		//Set the uniform block up.
-		glBindBuffer(GL_UNIFORM_BUFFER, instanceMaterial->lightUBOHandle);
-		//glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec4)*5*instanceMaterial->gLightsHandle->size(), instanceMaterial->gLightsHandle); //Copy data into buffer w/o glBufferData()'s allocation.
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	}
-#ifdef _DEBUG
-	else ERROR("Failure getting lights uniform block.");
-#endif
-
-	loc = instanceMaterial->updatingUniforms["uLoadedLights"];
-	if (loc != -1) glUniform1i(loc, instanceMaterial->gLightsHandle->size());
+	//Update lights.
+	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Light)*gNumLights, gLights); //Copy data into buffer w/o glBufferData()'s allocation.
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	triMesh->draw();
 }
+//-------------------------------------------------------------------------//
+
+GLuint gLightsUBO = NULL_HANDLE;
+int gNumLights = 0;
+Light gLights[MAX_LIGHTS];
+
+void initLightBuffer() {
+	if (gLightsUBO != NULL_HANDLE) return;
+	glGenBuffers(1, &gLightsUBO); // Generate a buffer that will send the lights to OpenGL, shared between shaders.
+
+	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(Light) * MAX_LIGHTS, gLights, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
 //-------------------------------------------------------------------------//
 
