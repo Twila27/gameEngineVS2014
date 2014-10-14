@@ -26,7 +26,9 @@ ISound* music = NULL;
 //Reason not using Scene is to preserve hot-updating scene files.
 map<string, TriMesh*> gMeshes;
 map<string, Material*> gMaterials;
-vector<TriMeshInstance*> gMeshInstances;
+//vector<TriMeshInstance*> gMeshInstances;
+map<string, SceneGraphNode*> gNodes;
+map<string, Script*> gScripts;
 vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
@@ -128,9 +130,9 @@ void loadWorldSettings(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
-			
+
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
-			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 		
+			ISound* music = soundEngine->play2D(fullFileName.c_str(), true);
 		}
 	}
 
@@ -140,6 +142,19 @@ void loadWorldSettings(FILE *F)
 
 	// Prepare the lights.
 	initLightBuffer();
+
+	// Load the mesh for billboards and sprites into the gMeshes map.
+	gMeshes["flatCard"] = new TriMesh();
+	gMeshes["flatCard"]->setName("flatCard");
+	gMeshes["flatCard"]->readFromPly("flatCard.ply", false);
+	gMeshes["flatCard"]->sendToOpenGL();
+
+	// Load the materials for billboards and sprites into the gMaterials map.
+	// There's one for sprite which won't move, one for billboard rotating yOnly, and another for allAxes rotation.
+	gMaterials["sprite"] = new Material();
+	gMaterials["yOnly"] = new Material();
+	gMaterials["allAxes"] = new Material();
+
 }
 
 void loadMesh(FILE *F)
@@ -195,44 +210,88 @@ void loadMaterial(FILE *F)
 	}
 
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
-	m->setLightUBOHandle(gLightsUBO);
-	m->getAndInitUniforms();
+	m->getAndInitUniforms(); //Very important line!
 	if (materialName != "") gMaterials[materialName] = m;
 }
 
-void loadMeshInstance(FILE *F)
+Drawable* loadAndReturnMeshInstance(FILE *F)
 {
 	string token;
 	GLuint vertexShader = NULL_HANDLE;
 	GLuint fragmentShader = NULL_HANDLE;
 	GLuint shaderProgram = NULL_HANDLE;
 
-	gMeshInstances.push_back(new TriMeshInstance());
+	TriMeshInstance *instance = new TriMeshInstance();
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") {
 			break;
 		}
-		else if (token == "translation") getFloats(F, &(gMeshInstances.back()->instanceTransform.translation[0]), 3);
-		else if (token == "rotation") getFloats(F, &(gMeshInstances.back()->instanceTransform.rotation[0]), 4);
-		else if (token == "scale") getFloats(F, &(gMeshInstances.back()->instanceTransform.scale[0]), 3);
 		else if (token == "material") {
 			string materialName;
 			getToken(F, materialName, ONE_TOKENS);
-			if (gMaterials.count(materialName) > 0)	gMeshInstances.back()->setMaterial(gMaterials[materialName]);
+			if (gMaterials.count(materialName) > 0)	instance->setMaterial(gMaterials[materialName]);
 			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
 		}
 		else if (token == "mesh") {
 			string meshName;
 			getToken(F, meshName, ONE_TOKENS);
-			if (gMeshes.count(meshName) > 0) gMeshInstances.back()->setMesh(gMeshes[meshName]);
+			if (gMeshes.count(meshName) > 0) instance->setMesh(gMeshes[meshName]);
 			else ERROR("Unable to locate gMeshes[" + meshName + "], is the name right in .scene?", false);
 		}
 	}
+	
+	return instance;
 }
 
-void loadLight(FILE *F) 
-{	
+Drawable* loadAndReturnSprite(FILE *F) 
+{
+	string token;
+
+	Sprite *sprite = new Sprite();
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") break;
+		else if (token == "material") {
+			string materialName;
+			getToken(F, materialName, ONE_TOKENS);
+			if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+		}
+	}
+
+	//Assign flat card mesh.
+	if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
+	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+
+	return sprite;
+}
+
+Drawable* loadAndReturnBillboard(FILE *F)
+{
+	string token;
+
+	Billboard *billboard = new Billboard();
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") break;
+		else if (token == "material") {
+			string materialName;
+			getToken(F, materialName, ONE_TOKENS);
+			if (gMaterials.count(materialName) > 0)	billboard->setMaterial(gMaterials[materialName]);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+		}
+	}
+
+	//Assign flat card mesh.
+	if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
+	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+
+	return billboard;
+}
+
+void loadLight(FILE *F)
+{
 	string token;
 
 	if (gNumLights + 1 > MAX_LIGHTS) ERROR("Too many lights in scene.");
@@ -280,11 +339,60 @@ void loadCamera(FILE *F)
 	gCameras.back()->refreshTransform((float)gWidth, (float)gHeight);
 }
 
+SceneGraphNode* loadAndReturnNode(FILE *F) 
+{
+	SceneGraphNode *n = new SceneGraphNode();
+	string token, nodeName("");
+	float renderThreshold = -1.0f;
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") break;
+		else if (token == "name")
+		{
+			getToken(F, nodeName, ONE_TOKENS);
+			if (nodeName == "") ERROR("Scene file does not name node!");
+			gNodes[nodeName] = n;
+		}
+		else if (token == "meshInstance") n->LODstack.push_back(loadAndReturnMeshInstance(F));
+		else if (token == "sprite") n->LODstack.push_back(loadAndReturnSprite(F));
+		else if (token == "billboard") n->LODstack.push_back(loadAndReturnBillboard(F));
+		else if (token == "maxRenderDist") getFloats(F, &renderThreshold, 1);
+		else if (token == "translation") getFloats(F, &(n->T.translation[0]), 3);
+		else if (token == "rotation") getFloats(F, &(n->T.rotation[0]), 4);
+		else if (token == "scale") getFloats(F, &(n->T.scale[0]), 3);
+		else if (token == "node") {
+			n->children.push_back(loadAndReturnNode(F));
+			n->children.back()->parent = n;
+		}
+		else if (token == "script") {
+			string scriptName;
+			getToken(F, scriptName, ONE_TOKENS);
+			if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
+			else ERROR("Unable to locate gScripts[" + scriptName + "], is the name right in .scene?", false);
+		}
+	}
+
+	//Auto-generate the other class members that the parser isn't supplying.
+
+	//First, the switching distances. 
+		//Given n items on the LODstack, we consider [0, n->renderThreshold].
+		//We subdivide this interval by the amount of objects in the LOD stack.
+	if (renderThreshold == -1.0f) ERROR("Need to specify maxRenderDist in node{}!", false);
+	for (float div = 1.0f; div <= (int)n->LODstack.size(); ++div)
+		n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
+		//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
+		//The node isn't rendered when the distance to the camera center is past its threshold.
+
+	//Second, 
+
+	return n;
+}
+
 void loadScene(const char *sceneFile)
 {
 	//Unload the previous scene if there was one.
 	if (!gMeshes.empty()) gMeshes.clear();
-	if (!gMeshInstances.empty()) gMeshInstances.clear();
+	if (!gNodes.empty()) gNodes.clear();
 	if (!gCameras.empty()) gCameras.clear();
 	if (!gMaterials.empty()) gMaterials.clear();
 	for (int i = 0; i < gNumLights; ++i) {
@@ -308,9 +416,10 @@ void loadScene(const char *sceneFile)
 	while (getToken(F, token, ONE_TOKENS)) {
 		//cout << token << endl;
 		if (token == "worldSettings") loadWorldSettings(F);
+		else if (token == "node") loadAndReturnNode(F);
 		else if (token == "mesh") loadMesh(F);
 		else if (token == "material") loadMaterial(F);
-		else if (token == "meshInstance") loadMeshInstance(F);
+		else if (token == "meshInstance") loadAndReturnMeshInstance(F);
 		else if (token == "camera") loadCamera(F);
 		else if (token == "light") loadLight(F);
 	}
@@ -321,7 +430,7 @@ void loadScene(const char *sceneFile)
 //-------------------------------------------------------------------------//
 
 void update(void)
-{	
+{
 	gCameras[gActiveCamera]->refreshTransform((float)gWidth, (float)gHeight);
 
 	if (gShouldSwapScene) {
@@ -333,10 +442,14 @@ void update(void)
 	}
 
 	///*
-	//// move mesh instance
+	//// move mesh instances
+	//for (int i = 0; i < (int)gMeshInstances.size(); ++i) {
+	//	gMeshInstances[i]->setTranslation(glm::vec3(gMeshInstances[i]->instanceTransform.translation.x + 0.003f, gMeshInstances[i]->instanceTransform.translation.y, gMeshInstances[i]->instanceTransform.translation.z));
+	//	if (gMeshInstances[i]->instanceTransform.translation.x >= 1.0f) gMeshInstances[i]->setTranslation(glm::vec3(-1, gMeshInstances[i]->instanceTransform.translation.y, gMeshInstances[i]->instanceTransform.translation.z));
+	//}
 	//gMeshInstance.translation[0] += 0.003f;
 	//if (gMeshInstance.translation[0] >= 1.0f) gMeshInstance.translation[0] = -1.0f;
- //   */
+	//   */
 	//
 	//// scale mesh instance
 	//static float dScale = 0.0005f;
@@ -367,9 +480,9 @@ void render(void)
 	// clear color and depth buffer
 	glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
+
 	// draw scene
-	for (int i = 0; i < (int)gMeshInstances.size(); ++i) gMeshInstances[i]->draw(*gCameras[gActiveCamera]);
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->draw(*gCameras[gActiveCamera]);
 }
 
 //-------------------------------------------------------------------------//
@@ -403,13 +516,13 @@ int main(int numArgs, char **args)
 
 	// start time (used to time framerate)
 	double startTime = TIME();
-    
+
 	// render loop
 	while (true) {
 		// update and render
 		update();
 		render();
-        
+
 		// handle input
 		glfwPollEvents();
 		//if (glfwGetKey(gWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) break;
@@ -419,12 +532,12 @@ int main(int numArgs, char **args)
 		double xx, yy;
 		glfwGetCursorPos(gWindow, &xx, &yy);
 		printf("%1.3f %1.3f ", xx, yy);
-        
+
 		// print framerate
 		double endTime = TIME();
-		printf("\rFPS: %1.0f  ", 1.0/(endTime-startTime));
+		printf("\rFPS: %1.0f  ", 1.0 / (endTime - startTime));
 		startTime = endTime;
-        
+
 		// swap buffers
 		//SLEEP(1); // sleep 1 millisecond to avoid busy waiting
 		glfwSwapBuffers(gWindow);
@@ -433,11 +546,11 @@ int main(int numArgs, char **args)
 	// Shut down sound engine
 	if (music) music->drop(); // release music stream.
 	soundEngine->drop(); // delete engine
-    
+
 	// Close OpenGL window and terminate GLFW
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
 	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
-	for (auto it = gMeshInstances.begin(); it != gMeshInstances.end(); ++it) delete *it;
+	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
 	glfwTerminate();

@@ -18,9 +18,9 @@ void ERROR(const string &msg, bool doExit)
 {
 	cerr << "\nERROR! " << msg << endl;
 	if (doExit) {
-		#ifdef _DEBUG
+#ifdef _DEBUG
 		cin >> doExit;
-		#endif
+#endif
 		exit(0);
 	}
 }
@@ -46,9 +46,9 @@ GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int sam
 	glfwWindowHint(GLFW_SAMPLES, samplesPerPixel);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, MAJOR_VERSION);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, MINOR_VERSION);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
 	// Open a window and create its OpenGL context
 	GLFWwindow *window = glfwCreateWindow(width, height, title, NULL, NULL);
 	if (window == NULL) {
@@ -56,22 +56,22 @@ GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int sam
 		ERROR("Failed to open GLFW window.", true);
 	}
 	glfwMakeContextCurrent(window);
-    
+
 	// Ensure we can capture the escape key being pressed
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
-    
+
 	// Initialize GLEW
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK) {
 		glfwTerminate();
 		ERROR("Failed to initialize GLEW.", true);
 	}
-    
+
 	glEnable(GL_DEPTH_TEST);
 	//glDepthFunc(GL_LESS);
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
-    
+
 	// Print the OpenGL version we are working with
 	char *GL_version = (char *)glGetString(GL_VERSION);
 	printf("OpenGL Version: %s\n", GL_version);
@@ -93,35 +93,35 @@ GLuint loadShader(const string &fileName, GLuint shaderType)
 	string alreadyIncluded = fileName;
 	replaceIncludes(mainCode, shaderCode, "#include", alreadyIncluded, true);
 
-    
+
 	// print the shader code
-	#ifdef PRINT_GLSL
+#ifdef PRINT_GLSL
 	cout << "\n----------------------------------------------- SHADER CODE:\n";
 	cout << shaderCode << endl;
 	cout << "--------------------------------------------------------------\n";
-	#endif
-    
+#endif
+
 	// transfer shader code to card and compile
 	GLuint shaderHandle = glCreateShader(shaderType); // create handle for the shader
 	const char* source = shaderCode.c_str();          // get C style string for shader code
 	glShaderSource(shaderHandle, 1, &source, NULL);   // pass the shader code to the card
 	glCompileShader(shaderHandle);                    // attempt to compile the shader
-	
+
 	// check to see if compilation worked
 	// If the compilation did not work, print an error message and return NULL handle
 	int status;
 	glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, &status);
 	if (status == GL_FALSE) {
-		ERROR("compiling shader '" + fileName + "'", false);				
+		ERROR("compiling shader '" + fileName + "'", false);
 		GLint msgLength = 0;
 		glGetShaderiv(shaderHandle, GL_INFO_LOG_LENGTH, &msgLength);
 		std::vector<char> msg(msgLength);
 		glGetShaderInfoLog(shaderHandle, msgLength, &msgLength, &msg[0]);
 		printf("%s\n", &msg[0]);
-		glDeleteShader(shaderHandle); 
+		glDeleteShader(shaderHandle);
 		return NULL_HANDLE;
 	}
-    
+
 	return shaderHandle;
 }
 
@@ -138,7 +138,7 @@ GLuint createShaderProgram(GLuint vertexShader, GLuint fragmentShader)
 	glAttachShader(shaderProgram, vertexShader);    // attach vertex shader
 	glAttachShader(shaderProgram, fragmentShader);  // attach fragment shader
 	glLinkProgram(shaderProgram);
-    
+
 	// check to see if the linking was successful
 	int linked;
 	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &linked); // get link status
@@ -152,7 +152,7 @@ GLuint createShaderProgram(GLuint vertexShader, GLuint fragmentShader)
 		glDeleteProgram(shaderProgram);
 		return NULL_HANDLE;
 	}
-    
+
 	//Attach UBO to uniform block in GLSL via the same binding point.
 	GLint locLightUB = glGetUniformBlockIndex(shaderProgram, "ubGlobalLights");
 	glUniformBlockBinding(shaderProgram, locLightUB, 1); //Associates UB to binding point 1.
@@ -235,7 +235,7 @@ bool getToken(FILE *f, string &token, const string &oneCharTokens)
 		int tokenLength = (int)token.length();
 		int cIsSpace = isspace(c);
 		bool cIsOneCharToken = ((int)oneCharTokens.find((char)c) >= 0);
-        
+
 		if (cIsSpace && tokenLength == 0) { // spaces before token, ignore
 			continue;
 		}
@@ -327,14 +327,14 @@ bool loadFileAsString(const string &fileName, string &fileContents)
 		fileStream.close();
 		return true;
 	}
-	
+
 	fileStream.close();
 	return false;
 }
 
 //-------------------------------------------------------------------------//
 
-void replaceIncludes(string &src, string &dest, const string &directive, 
+void replaceIncludes(string &src, string &dest, const string &directive,
 	string &alreadyIncluded, bool onlyOnce)
 {
 	int start = 0;
@@ -385,6 +385,7 @@ bool RGBAImage::loadPNG(const string &fileName, bool doFlipY)
 	unsigned error = lodepng::decode(pixels, width, height, fullName.c_str());
 	if (error) {
 		ERROR(lodepng_error_text(error), false);
+		ERROR("LoadPNG error, check if texture is in folder with right name!", false);
 		return false;
 	}
 
@@ -435,6 +436,17 @@ void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipM
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 }
 
+
+Material::Material(void)
+{
+	shaderProgramHandle = NULL_HANDLE;
+	diffuseColor = glm::vec4(1, 1, 1, 1);
+	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
+	specularExponent = 1.0;
+	ambientIntensity = glm::vec4(0.2, 0.2, 0.2, 0.2);
+	emissiveColor = glm::vec4(0.2, 0.0, 0.0, 0.0);
+}
+
 //-------------------------------------------------------------------------//
 // TRIANGLE MESH
 //-------------------------------------------------------------------------//
@@ -448,7 +460,7 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 	int numFaces = 0;
 	int numTriangles = 0;
 	vector<int> faceIndices;
-    
+
 	// get num vertices
 	while (getToken(f, token, "")) {
 		//cout << token << endl;
@@ -456,7 +468,7 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 	}
 	getToken(f, token, "");
 	numVertices = atoi(token.c_str());
-    
+
 	// get vertex attributes
 	while (getToken(f, token, "")) {
 		if (token == "property") {
@@ -470,12 +482,12 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 			break;
 		}
 	}
-    
+
 	// read to end of header
 	while (getToken(f, token, "")) {
 		if (token == "end_header") break;
 	}
-    
+
 	// get vertices
 	float val;
 	for (int i = 0; i < (int)(numVertices*attributes.size()); i++) {
@@ -484,7 +496,7 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 		fscanf(f, "%f", &val);
 		vertexData.push_back(val);
 	}
-    
+
 	// divide color values by 255, and flip normal directions if needed
 	// This deals with issues related to exporting from Blender to ply
 	// usin the y-axis as UP and the z-axis as FRONT.
@@ -500,7 +512,7 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 			}
 		}
 	}
-    
+
 	// get faces
 	int idx;
 	for (int i = 0; i < numFaces; i++) {
@@ -515,18 +527,18 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 		}
 		for (int j = 2; j < numVerts; j++) { // make triangle fan
 			indices.push_back(faceIndices[0]);
-			indices.push_back(faceIndices[j-1]);
+			indices.push_back(faceIndices[j - 1]);
 			indices.push_back(faceIndices[j]);
 			numTriangles++;
 		}
 	}
 	numIndices = (int)indices.size();
-    
+
 	//printf("vertices:%d, triangles:%d, attributes:%d\n",
 	//	vertexData.size()/attributes.size(),
 	//	indices.size()/3,
 	//	attributes.size());
-    
+
 	fclose(f);
 	return true;
 }
@@ -547,7 +559,7 @@ bool TriMesh::sendToOpenGL(void)
 	//
 	glGenVertexArrays(1, &vao); // generate 1 array
 	glBindVertexArray(vao);
-    
+
 	// Make and bind the vertex buffer object.  The vbo
 	// holds the raw data that will be indexed by the vao.
 	//
@@ -555,43 +567,43 @@ bool TriMesh::sendToOpenGL(void)
 	glGenBuffers(1, &vbo); // generate 1 buffer
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertexData.size()*sizeof(float), &vertexData[0], GL_STATIC_DRAW);
-    
+
 	// At this point, we have to tell the vertex array what kind
 	// of data it holds, and where it is located in the vertex buffer.
 	// The code here uses the first field of four possible data types
 	// (position, normal, textureCoordinate, color)
 	//
 	int stride = (int)attributes.size() * sizeof(float); // size of a vertex in bytes
-    
+
 	for (int i = 0; i < (int)attributes.size(); i++) {
 		int bindIndex = -1;
 		//int numComponents = 0;
-        
+
 		if (attributes[i] == "x") bindIndex = V_POSITION;
 		else if (attributes[i] == "nx") bindIndex = V_NORMAL;
 		else if (attributes[i] == "s") bindIndex = V_ST;
 		else if (attributes[i] == "red") bindIndex = V_COLOR;
-        
+
 		if (bindIndex >= 0) {
 			//printf("bindIndex = %d\n", bindIndex);
 			glEnableVertexAttribArray(bindIndex);
 			glVertexAttribPointer(bindIndex, NUM_COMPONENTS[bindIndex],
-                                  GL_FLOAT, GL_FALSE, stride, (void*)(i * sizeof(float)));
+				GL_FLOAT, GL_FALSE, stride, (void*)(i * sizeof(float)));
 		}
 	}
-    
+
 	// unbind the VBO and VAO
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-    
-    
+
+
 	// Generate the index buffer
 	glGenBuffers(1, &ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(int),
-                 &indices[0], GL_STATIC_DRAW);
+		&indices[0], GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // unbind
-    
+
 	glDeleteBuffers(1, &vbo);
 
 	return true;
@@ -603,73 +615,20 @@ void TriMesh::draw(void)
 {
 	glBindVertexArray(vao); // bind the vertices
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo); // bind the indices
-    
+
 	// draw the triangles.  modes: GL_TRIANGLES, GL_LINES, GL_POINTS
 	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, (void*)0);
 }
 
 //-------------------------------------------------------------------------//
 
-Material::Material(void)
-{
-	shaderProgramHandle = NULL_HANDLE;
-	lightUBOHandle = NULL_HANDLE;
-	diffuseColor = glm::vec4(1, 1, 1, 1);
-	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
-	ambientIntensity = glm::vec4(0.2, 0.2, 0.2, 0.2);
-	emissiveColor = glm::vec4(0.2, 0.0, 0.0, 0.0);
-}
-
-//-------------------------------------------------------------------------//
-
-TriMeshInstance::TriMeshInstance(void)
-{
-	triMesh = nullptr;
-	instanceMaterial = nullptr;
-    
-	instanceTransform.scale = glm::vec3(1, 1, 1);
-	instanceTransform.translation = glm::vec3(0, 0, 0);
-}
-
-//-------------------------------------------------------------------------//
-
 void TriMeshInstance::draw(Camera &camera)
 {
-	glUseProgram(instanceMaterial->shaderProgramHandle);
-    
+	glUseProgram(material->shaderProgramHandle);
+
 	// Inefficient.  Looks up uniforms by string every time.
 	// Setting the uniforms should probably part of a Material
 	// class.
-	
-	GLint loc;
-    
-	instanceTransform.refreshTransform();
-	//printMat(transform);
-
-	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldM");
-	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.transform));
-#ifdef _DEBUG
-	//else ERROR("Could not load uniform uObjectWorldM.", false);
-#endif
-
-	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectWorldInverseM");
-	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(instanceTransform.invTransform));
-#ifdef _DEBUG
-	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
-#endif
-
-	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * instanceTransform.transform;
-	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uObjectPerpsectM");
-	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
-#ifdef _DEBUG
-	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
-#endif
-
-	loc = glGetUniformLocation(instanceMaterial->shaderProgramHandle, "uViewDirection");
-	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
-#ifdef _DEBUG
-	//else ERROR("Could not load uniform uViewDirection.", false);
-#endif
 
 	//Update lights.
 	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
@@ -678,6 +637,15 @@ void TriMeshInstance::draw(Camera &camera)
 
 	triMesh->draw();
 }
+
+//-------------------------------------------------------------------------//
+
+void Sprite::draw(Camera &camera) {}
+
+//-------------------------------------------------------------------------//
+
+void Billboard::draw(Camera &camera) {}
+
 //-------------------------------------------------------------------------//
 
 GLuint gLightsUBO = NULL_HANDLE;
@@ -689,9 +657,48 @@ void initLightBuffer() {
 	glGenBuffers(1, &gLightsUBO); // Generate a buffer that will send the lights to OpenGL, shared between shaders.
 
 	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(Light) * MAX_LIGHTS, gLights, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(Light)* MAX_LIGHTS, gLights, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 //-------------------------------------------------------------------------//
 
+SceneGraphNode::SceneGraphNode(void) {
+	T.scale = glm::vec3(1, 1, 1);
+	T.translation = glm::vec3(0, 0, 0);
+}
+
+void SceneGraphNode::draw(Camera &camera) {
+	T.refreshTransform();
+	//printMat(transform);
+
+	GLint loc;
+
+	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectWorldM");
+	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.transform));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uObjectWorldM.", false);
+#endif
+
+	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectWorldInverseM");
+	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.invTransform));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
+#endif
+
+	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * T.transform;
+	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectPerpsectM");
+	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
+#endif
+
+	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uViewDirection");
+	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uViewDirection.", false);
+#endif
+
+	//For now, hardcoded to render the frontmost LOD stack element.
+	LODstack[0]->draw(camera);
+}

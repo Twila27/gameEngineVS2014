@@ -52,7 +52,7 @@ void SLEEP(int millis);
 
 #define MAJOR_VERSION 4
 #define MINOR_VERSION 0
-GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int samplesPerPixel=0);
+GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int samplesPerPixel = 0);
 
 #define NULL_HANDLE 0
 GLuint loadShader(const string &fileName, GLuint shaderType);
@@ -85,7 +85,7 @@ int getInts(FILE *f, int *a, int num);
 
 bool loadFileAsString(const string &fileName, string &buffer);
 
-void replaceIncludes(string &src, string &dest, const string &directive, 
+void replaceIncludes(string &src, string &dest, const string &directive,
 	string &alreadyIncluded, bool onlyOnce);
 
 //-------------------------------------------------------------------------//
@@ -143,12 +143,12 @@ public:
 	glm::mat4x4 transform;
 	glm::mat4x4 invTransform;
 
-	void refreshTransform(void)
+	void refreshTransform(const glm::mat4x4 &parentTransform = glm::mat4()) //Default argument is identity matrix.
 	{
 		glm::mat4x4 Mtrans = glm::translate(translation);
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
-		transform = Mtrans * Mrot * Mscale;  // transforms happen right to left
+		transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
 		invTransform = glm::inverse(transform);
 	}
 };
@@ -204,59 +204,13 @@ public:
 };
 
 //-------------------------------------------------------------------------//
-// LIGHT
+// MATERIAL, MESH & DRAWABLE
 //-------------------------------------------------------------------------//
-
-struct Light {
-	//72 bytes = 4 int/float + 4 vec4.
-	enum class LIGHT_TYPE : int { POINT = 1, DIRECTIONAL, SPOT_LIGHT, AMBIENT, HEAD_LIGHT, RIM_LIGHT };
-	LIGHT_TYPE type;
-	float alpha, theta; //Angles we can use for spotlights?
-	int isOn;
-	glm::vec4 intensity; //A color.
-	glm::vec4 position;
-	glm::vec4 direction;
-	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
-	Light(void) {}
-	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten) 
-		: type(type), position(pos), direction(dir), attenuation(atten) { }
-};
-
-#define MAX_LIGHTS 8
-extern GLuint gLightsUBO;
-extern int gNumLights;
-extern Light gLights[MAX_LIGHTS];
-
-void initLightBuffer(void);
-
-//-------------------------------------------------------------------------//
-// MESH & MATERIAL
-//-------------------------------------------------------------------------//
-
-class TriMesh
-{
-public:
-	string name;
-	vector<string> attributes;
-	vector<float> vertexData;
-	vector<int> indices;
-	int numIndices;
-    
-	GLuint vao; // vertex array handle
-	GLuint ibo; // index buffer handle
-	
-	~TriMesh() { glDeleteBuffers(1, &vao); glDeleteBuffers(1, &ibo); }
-	void setName(const string &str) { name = str; }
-	bool readFromPly(const string &fileName, bool flipZ = false);
-	bool sendToOpenGL(void);
-	void draw(void);
-};
 
 class Material
 {
 public:
 	GLuint shaderProgramHandle; //Currently in instance class.
-	GLuint lightUBOHandle; 
 	glm::vec4 diffuseColor;
 	glm::vec4 specularColor;
 	float specularExponent; //Shiny factor.
@@ -268,13 +222,12 @@ public:
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
 	Material(void);
-	~Material(void) 
-	{ 
-		for (auto it = textures.begin(); it != textures.end(); ++it) delete *it; 
+	~Material(void)
+	{
+		for (auto it = textures.begin(); it != textures.end(); ++it) delete *it;
 		glDeleteProgram(shaderProgramHandle);
 	}
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
-	void setLightUBOHandle(GLuint lightUBOHandle) { this->lightUBOHandle = lightUBOHandle; }
 	void getAndInitUniforms()
 	{ //Placing this code here potentially enables shader program swaps. Can move it to the .cpp though.
 
@@ -310,9 +263,9 @@ public:
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			}
-			#ifdef _DEBUG
+#ifdef _DEBUG
 			else ERROR("Failure in texture setup loop.", false);
-			#endif
+#endif
 		}
 
 		//Set up non-textures.
@@ -343,28 +296,109 @@ public:
 	}
 };
 
-// should extend EngineObject
-class TriMeshInstance 
+class TriMesh
 {
 public:
-	TriMesh *triMesh;
-	Material *instanceMaterial;
-	Transform instanceTransform;
-	
-public:
-	TriMeshInstance(void);
+	string name;
+	vector<string> attributes;
+	vector<float> vertexData;
+	vector<int> indices;
+	int numIndices;
 
+	GLuint vao; // vertex array handle
+	GLuint ibo; // index buffer handle
+
+	~TriMesh() { glDeleteBuffers(1, &vao); glDeleteBuffers(1, &ibo); }
+	void setName(const string &str) { name = str; }
+	bool readFromPly(const string &fileName, bool flipZ = false);
+	bool sendToOpenGL(void);
+	void draw(void);
+};
+
+
+class Drawable {
+public:
+	TriMesh *triMesh;
+	Material *material;
+
+	Drawable(void) { triMesh = nullptr; material = nullptr; }
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
-	void setMaterial(Material *material) { instanceMaterial = material; }
-	void setDiffuseColor(const glm::vec4 &c) { instanceMaterial->diffuseColor = c; }
-	void setSpecularColor(const glm::vec4 &c) { instanceMaterial->specularColor = c; }
-	void setScale(const glm::vec3 &s) { instanceTransform.scale = s; }
-	void setRotation(const glm::quat &r) { instanceTransform.rotation = r; }
-	void setTranslation(const glm::vec3 &t) { instanceTransform.translation = t; }
-    
-	void refreshTransform(void);
-    
-	void draw(Camera &camera);
+	void setMaterial(Material *material_) { material = material_; }
+	virtual void draw(Camera &camera) = 0;
 };
 
 //-------------------------------------------------------------------------//
+// LIGHT
+//-------------------------------------------------------------------------//
+
+struct Light {
+	//72 bytes = 4 int/float + 4 vec4.
+	enum class LIGHT_TYPE : int { POINT = 1, DIRECTIONAL, SPOT_LIGHT, AMBIENT, HEAD_LIGHT, RIM_LIGHT };
+	LIGHT_TYPE type;
+	float alpha, theta; //Angles we can use for spotlights?
+	int isOn;
+	glm::vec4 intensity; //A color.
+	glm::vec4 position;
+	glm::vec4 direction;
+	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
+	Light(void) {}
+	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
+		: type(type), position(pos), direction(dir), attenuation(atten) { }
+};
+
+#define MAX_LIGHTS 8
+extern GLuint gLightsUBO;
+extern int gNumLights;
+extern Light gLights[MAX_LIGHTS];
+
+void initLightBuffer(void);
+
+//-------------------------------------------------------------------------//
+// DRAWABLES
+//-------------------------------------------------------------------------//
+
+class Sprite : public Drawable {
+public:
+	virtual void draw(Camera& camera) override;
+};
+
+class Billboard : public Sprite {
+public:
+	void draw(Camera& camera) override;
+};
+
+// should extend EngineObject
+class TriMeshInstance : public Drawable
+{
+public:
+	void draw(Camera &camera) override;
+};
+
+
+//-------------------------------------------------------------------------//
+// SCRIPT
+//-------------------------------------------------------------------------//
+
+class Script {};
+
+//-------------------------------------------------------------------------//
+// SCENE GRAPH NODE
+//-------------------------------------------------------------------------//
+
+class SceneGraphNode {
+public:
+	vector<Drawable*> LODstack; //Level of detail stack.
+	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
+	Transform T;
+	Camera objectCamera; //See notes for an issue with this. Add each to gCameras during loadNode().
+	vector<SceneGraphNode*> children;
+	SceneGraphNode * parent;
+	vector<Script*> scripts;
+	
+	SceneGraphNode(void);
+	~SceneGraphNode(void) { for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; }
+	void draw(Camera &camera); //Make it use the LODstack!
+	void setScale(const glm::vec3 &s) { T.scale = s; for (int i = 0; i < (int)children.size(); ++i) children[i]->setScale(s); }
+	void setRotation(const glm::quat &r) { T.rotation = r; for (int i = 0; i < (int)children.size(); ++i) children[i]->setRotation(r); }
+	void setTranslation(const glm::vec3 &t) { T.translation = t; for (int i = 0; i < (int)children.size(); ++i) children[i]->setTranslation(t); }
+};
