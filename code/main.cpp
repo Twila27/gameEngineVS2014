@@ -154,16 +154,16 @@ void loadWorldSettings(FILE *F)
 	// Note these rely heavily on the Material ctor's settings for its color uniforms.
 	gMaterials["sprite"] = new Material();
 	gMaterials["sprite"]->name = "sprite";
-	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
 	//Lines to set up texture needed.
 	gMaterials["sprite"]->getAndInitUniforms();
 	gMaterials["yOnly"] = new Material();
 	gMaterials["yOnly"]->name = "yOnly";
-	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("yOnly.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("yOnly.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
 	gMaterials["yOnly"]->getAndInitUniforms();
 	gMaterials["allAxes"] = new Material();
 	gMaterials["allAxes"]->name = "allAxes";
-	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("allAxes.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("allAxes.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
 	gMaterials["allAxes"]->getAndInitUniforms();
 
 }
@@ -221,9 +221,9 @@ void loadMaterial(FILE *F)
 	}
 
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
-	m->getAndInitUniforms(); //Very important line!
 	if (materialName != "") gMaterials[materialName] = m;
 	m->name = materialName;
+	m->getAndInitUniforms(); //Very important line!
 }
 
 Drawable* loadAndReturnMeshInstance(FILE *F)
@@ -292,6 +292,15 @@ Drawable* loadAndReturnBillboard(FILE *F)
 			getToken(F, materialName, ONE_TOKENS);
 			if (gMaterials.count(materialName) > 0)	billboard->setMaterial(gMaterials[materialName]);
 			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+		}
+		else if (token == "image") {
+			Material* m = billboard->getMaterial();
+			m->textures.push_back(new RGBAImage());
+			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
+			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
+			m->textures.back()->loadPNG(texFileName);
+			m->textures.back()->sendToOpenGL();
+			m->getAndInitUniforms();
 		}
 	}
 
@@ -474,8 +483,8 @@ void update(void)
 
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
 
-	if (glfwGetKey(gWindow, GLFW_KEY_R)) gNodes["oNode"]->T.rotation.y += 0.01f;
-	if (glfwGetKey(gWindow, GLFW_KEY_F)) gNodes["oNode"]->T.rotation.y -= 0.01f;
+	if (glfwGetKey(gWindow, GLFW_KEY_R)) gNodes["oNode"]->T.rotation.y += rAmt;
+	if (glfwGetKey(gWindow, GLFW_KEY_F)) gNodes["oNode"]->T.rotation.y -= rAmt;
 
 	//// rotate mesh
 	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));

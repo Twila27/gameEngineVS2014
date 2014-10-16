@@ -349,6 +349,7 @@ public:
 	Material *material;
 
 	Drawable(void) { triMesh = nullptr; material = nullptr; }
+	Material* getMaterial() { return material; }
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
 	void setMaterial(Material *material_) { material = material_; }
 	virtual void draw(Camera& camera); //Not pure anymore, handles general mesh render.
@@ -361,6 +362,33 @@ public:
 
 class Sprite : public Drawable {
 public:
+	vector<float[4]> frames; //Need this list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
+	int frameWidth, frameHeight;
+	int amtRows, amtCols;
+	int animRate, animDir;
+	int activeFrame;
+	//Plus a tick method to advance and wrap between frames, frameW, frameH, amtRows, amtCols, animDir.
+	//Sheet dims can be accessed via textures[0], frames assigned as below:
+	//	for (r = 0 < amtRows)
+	//		for (c = 0 < amtCols) {
+	//			float u1 = round((c*frameW)/textures[0]->w*100) / 100f;
+	//			float v1 = round((r*frameH)/textures[0]->h*100) / 100f;
+	//			float u2 = round(((c+1)*frameW)/textures[0]->w*100) / 100f;
+	//			float v2 = round(((r+1)*frameH)/textures[0]->h*100) / 100f;
+	//			frames.push_back({u1, v1, u2, v2});
+	//		}
+	//Assign alpha (using discard() GLSL function) and texture frame in fragment shader.
+	//May enable back-face culling.
+	//SDL needs sprite{} to specify frameW, frameH, tRate, aDirection, plus a new material{} that has an atlas for a texture and a sprite fragment shader doing the above.
+	//All the above parsed via loadSprite().
+	//We can get the size of frames[][] from nRows := textures[0].w/spriteW * nCols := textures[0].h/spriteH.
+	//Stick to a row per animation, kept in activeRow variable in this class.
+	//Sprite subclass will have fields for above attributes, a runtime allocated frames[nRows] pointer to static arrays of size nCols initialized only once by Sprite::init() which calls glGetUniformLocation("spriteFrame").
+	//This is then iterated in Sprite::tick(), in animDirection, and calls glUniform4fv() with the stored loc and the frame as a vec4 with XYZW = XYWH.
+	//GLSL should use the uniform as below:
+	//gl_FragColor = texture2D(Sample0, SpriteFrame.xy + (UV * SpriteFrame.zw)); where UV is the original tex coords of the geometry, which generally should be planar.
+	void tick(void) {}
+	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
 	virtual void draw(Camera& camera) override;
 };
 
