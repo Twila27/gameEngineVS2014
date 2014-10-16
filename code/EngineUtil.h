@@ -143,12 +143,12 @@ public:
 	glm::mat4x4 transform;
 	glm::mat4x4 invTransform;
 
-	void refreshTransform(/*const glm::mat4x4 &parentTransform = glm::mat4()*/) //Default argument is identity matrix.
+	void refreshTransform(const glm::mat4x4 &parentTransform = glm::mat4()) //Default argument is identity matrix.
 	{
 		glm::mat4x4 Mtrans = glm::translate(translation);
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
-		transform = /*parentTransform **/ Mtrans * Mrot * Mscale;  // transforms happen right to left
+		transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
 		invTransform = glm::inverse(transform);
 	}
 };

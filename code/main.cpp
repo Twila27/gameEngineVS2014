@@ -474,6 +474,9 @@ void update(void)
 
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
 
+	if (glfwGetKey(gWindow, GLFW_KEY_R)) gNodes["oNode"]->T.rotation.y += 0.01f;
+	if (glfwGetKey(gWindow, GLFW_KEY_F)) gNodes["oNode"]->T.rotation.y -= 0.01f;
+
 	//// rotate mesh
 	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
 	//gMeshInstance.T.rotation *= r;

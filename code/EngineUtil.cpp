@@ -686,6 +686,7 @@ SceneGraphNode::SceneGraphNode(void) {
 void SceneGraphNode::update(Camera &camera) 
 {
 	T.refreshTransform();
+	for (int i = 0; i < (int)children.size(); ++i) children[i]->T.refreshTransform(T.transform);
 	//printMat(transform);
 	LODstack[0]->prepareToDraw(camera, T, *LODstack[0]->material); //Do any class-specific updating.
 }
