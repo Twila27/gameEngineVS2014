@@ -151,9 +151,20 @@ void loadWorldSettings(FILE *F)
 
 	// Load the materials for billboards and sprites into the gMaterials map.
 	// There's one for sprite which won't move, one for billboard rotating yOnly, and another for allAxes rotation.
+	// Note these rely heavily on the Material ctor's settings for its color uniforms.
 	gMaterials["sprite"] = new Material();
+	gMaterials["sprite"]->name = "sprite";
+	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	//Lines to set up texture needed.
+	gMaterials["sprite"]->getAndInitUniforms();
 	gMaterials["yOnly"] = new Material();
+	gMaterials["yOnly"]->name = "yOnly";
+	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("yOnly.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["yOnly"]->getAndInitUniforms();
 	gMaterials["allAxes"] = new Material();
+	gMaterials["allAxes"]->name = "allAxes";
+	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("allAxes.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["allAxes"]->getAndInitUniforms();
 
 }
 
@@ -166,7 +177,7 @@ void loadMesh(FILE *F)
 		else if (token == "name") getToken(F, meshName, ONE_TOKENS);
 		else if (token == "file") getToken(F, fileName, ONE_TOKENS);
 	}
-
+		
 	gMeshes[meshName] = new TriMesh();
 	gMeshes[meshName]->setName(meshName);
 	gMeshes[meshName]->readFromPly(fileName, false);
@@ -212,6 +223,7 @@ void loadMaterial(FILE *F)
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
 	m->getAndInitUniforms(); //Very important line!
 	if (materialName != "") gMaterials[materialName] = m;
+	m->name = materialName;
 }
 
 Drawable* loadAndReturnMeshInstance(FILE *F)
@@ -352,6 +364,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			getToken(F, nodeName, ONE_TOKENS);
 			if (nodeName == "") ERROR("Scene file does not name node!");
 			gNodes[nodeName] = n;
+			n->name = nodeName;
 		}
 		else if (token == "meshInstance") n->LODstack.push_back(loadAndReturnMeshInstance(F));
 		else if (token == "sprite") n->LODstack.push_back(loadAndReturnSprite(F));
@@ -459,6 +472,8 @@ void update(void)
 	//if (scale < 0.25f) dScale = 0.0005f;
 	//gMeshInstance.setScale(glm::vec3(scale));
 
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
+
 	//// rotate mesh
 	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
 	//gMeshInstance.T.rotation *= r;
@@ -480,6 +495,11 @@ void render(void)
 	// clear color and depth buffer
 	glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	//Update lights.
+	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Light)*gNumLights, gLights); //Copy data into buffer w/o glBufferData()'s allocation.
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	// draw scene
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->draw(*gCameras[gActiveCamera]);

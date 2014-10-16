@@ -622,29 +622,44 @@ void TriMesh::draw(void)
 
 //-------------------------------------------------------------------------//
 
-void TriMeshInstance::draw(Camera &camera)
+void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
+{
+	glm::vec3 camXZdir = glm::normalize(glm::vec3(camera.eye.x - T.translation.x, 0, camera.eye.z - T.translation.z)); //Get (cam-bil) direction's xz part.
+	T.rotation.y = (camXZdir.x > 0 ? 1 : -1) * acos(glm::dot(camXZdir, glm::vec3(0, 0, 1))); //Assign this Y rotation to the only-Y billboard's rotation transform in its vertex shader.
+
+	if (material.name == "allAxes") {
+		glm::vec3 camDir = glm::normalize(glm::vec3(camera.eye.x - T.translation.x, camera.eye.y - T.translation.y, camera.eye.z - T.translation.z)); //Get (cam-bil) direction's xyz part.
+		T.rotation.x = -asin(camDir.y); // Add an initial rotation based on camera location to the x of the fully-facing-you billboard's rotation transform in its vertex shader.
+	}
+}
+
+void Drawable::draw(Camera &camera) 
 {
 	glUseProgram(material->shaderProgramHandle);
 
-	// Inefficient.  Looks up uniforms by string every time.
-	// Setting the uniforms should probably part of a Material
-	// class.
-
-	//Update lights.
-	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Light)*gNumLights, gLights); //Copy data into buffer w/o glBufferData()'s allocation.
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
 	triMesh->draw();
+
+	glUseProgram(0);
+}
+
+void TriMeshInstance::draw(Camera &camera)
+{
+	Drawable::draw(camera);
 }
 
 //-------------------------------------------------------------------------//
 
-void Sprite::draw(Camera &camera) {}
+void Sprite::draw(Camera &camera) 
+{
+	Drawable::draw(camera);
+}
 
 //-------------------------------------------------------------------------//
 
-void Billboard::draw(Camera &camera) {}
+void Billboard::draw(Camera &camera) 
+{
+	Drawable::draw(camera);
+}
 
 //-------------------------------------------------------------------------//
 
@@ -668,9 +683,18 @@ SceneGraphNode::SceneGraphNode(void) {
 	T.translation = glm::vec3(0, 0, 0);
 }
 
-void SceneGraphNode::draw(Camera &camera) {
+void SceneGraphNode::update(Camera &camera) 
+{
 	T.refreshTransform();
 	//printMat(transform);
+	LODstack[0]->prepareToDraw(camera, T, *LODstack[0]->material); //Do any class-specific updating.
+}
+
+void SceneGraphNode::draw(Camera &camera) {
+
+	//printMat(transform);
+
+	glUseProgram(this->LODstack[0]->material->shaderProgramHandle);
 
 	GLint loc;
 

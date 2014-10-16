@@ -143,12 +143,12 @@ public:
 	glm::mat4x4 transform;
 	glm::mat4x4 invTransform;
 
-	void refreshTransform(const glm::mat4x4 &parentTransform = glm::mat4()) //Default argument is identity matrix.
+	void refreshTransform(/*const glm::mat4x4 &parentTransform = glm::mat4()*/) //Default argument is identity matrix.
 	{
 		glm::mat4x4 Mtrans = glm::translate(translation);
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
-		transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
+		transform = /*parentTransform **/ Mtrans * Mrot * Mscale;  // transforms happen right to left
 		invTransform = glm::inverse(transform);
 	}
 };
@@ -160,8 +160,8 @@ public:
 class Camera
 {
 public:
-	// look from, look at, view up
-	// yaw, pitch, roll then affect look at or center!
+	//Eye is camera position, the lookFrom.
+	//Center is the camera lookAt target.
 	glm::vec3 eye, center, vup;
 
 	float fovy; // vertical field of view
@@ -203,6 +203,33 @@ public:
 	}
 };
 
+
+//-------------------------------------------------------------------------//
+// LIGHT
+//-------------------------------------------------------------------------//
+
+struct Light {
+	//72 bytes = 4 int/float + 4 vec4.
+	enum class LIGHT_TYPE : int { POINT = 1, DIRECTIONAL, SPOT_LIGHT, AMBIENT, HEAD_LIGHT, RIM_LIGHT };
+	LIGHT_TYPE type;
+	float alpha, theta; //Angles we can use for spotlights?
+	int isOn;
+	glm::vec4 intensity; //A color.
+	glm::vec4 position;
+	glm::vec4 direction;
+	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
+	Light(void) {}
+	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
+		: type(type), position(pos), direction(dir), attenuation(atten) { }
+};
+
+#define MAX_LIGHTS 8
+extern GLuint gLightsUBO;
+extern int gNumLights;
+extern Light gLights[MAX_LIGHTS];
+
+void initLightBuffer(void);
+
 //-------------------------------------------------------------------------//
 // MATERIAL, MESH & DRAWABLE
 //-------------------------------------------------------------------------//
@@ -210,8 +237,9 @@ public:
 class Material
 {
 public:
-	GLuint shaderProgramHandle; //Currently in instance class.
-	glm::vec4 diffuseColor;
+	string name;
+	GLuint shaderProgramHandle;
+	glm::vec4 diffuseColor; //If we add setters, do we get tinting? Might need to make uniforms streaming then...
 	glm::vec4 specularColor;
 	float specularExponent; //Shiny factor.
 	glm::vec4 ambientIntensity;
@@ -264,7 +292,7 @@ public:
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			}
 #ifdef _DEBUG
-			else ERROR("Failure in texture setup loop.", false);
+			else ERROR("\n\tFailure in texture setup loop.", false);
 #endif
 		}
 
@@ -272,28 +300,28 @@ public:
 		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
 		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting diffuse color uniform.", false);
+		else ERROR("\n\tFailure getting diffuse color uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
 		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting ambient intensity uniform.", false);
+		else ERROR("\n\tFailure getting ambient intensity uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
 		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
 #ifdef _DEBUG
-		else ERROR("Failure getting specular color uniform.", false);
+		else ERROR("\n\tFailure getting specular color uniform.", false);
 #endif 
 
 		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
 		if (loc != -1) glUniform1f(loc, specularExponent);
 #ifdef _DEBUG
-		else ERROR("Failure getting specular exponent uniform.", false);
+		else ERROR("\n\tFailure getting specular exponent uniform.", false);
 #endif 
 		glUseProgram(0);
-	}
+	} // ONLY will run once, no streaming updates.
 };
 
 class TriMesh
@@ -315,7 +343,6 @@ public:
 	void draw(void);
 };
 
-
 class Drawable {
 public:
 	TriMesh *triMesh;
@@ -324,34 +351,9 @@ public:
 	Drawable(void) { triMesh = nullptr; material = nullptr; }
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
 	void setMaterial(Material *material_) { material = material_; }
-	virtual void draw(Camera &camera) = 0;
+	virtual void draw(Camera& camera); //Not pure anymore, handles general mesh render.
+	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) {} //Handle subclass-specific preparation.
 };
-
-//-------------------------------------------------------------------------//
-// LIGHT
-//-------------------------------------------------------------------------//
-
-struct Light {
-	//72 bytes = 4 int/float + 4 vec4.
-	enum class LIGHT_TYPE : int { POINT = 1, DIRECTIONAL, SPOT_LIGHT, AMBIENT, HEAD_LIGHT, RIM_LIGHT };
-	LIGHT_TYPE type;
-	float alpha, theta; //Angles we can use for spotlights?
-	int isOn;
-	glm::vec4 intensity; //A color.
-	glm::vec4 position;
-	glm::vec4 direction;
-	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
-	Light(void) {}
-	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
-		: type(type), position(pos), direction(dir), attenuation(atten) { }
-};
-
-#define MAX_LIGHTS 8
-extern GLuint gLightsUBO;
-extern int gNumLights;
-extern Light gLights[MAX_LIGHTS];
-
-void initLightBuffer(void);
 
 //-------------------------------------------------------------------------//
 // DRAWABLES
@@ -365,13 +367,14 @@ public:
 class Billboard : public Sprite {
 public:
 	void draw(Camera& camera) override;
+	void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
 };
 
 // should extend EngineObject
 class TriMeshInstance : public Drawable
 {
 public:
-	void draw(Camera &camera) override;
+	void draw(Camera& camera) override;
 };
 
 
@@ -387,18 +390,20 @@ class Script {};
 
 class SceneGraphNode {
 public:
+	string name;
 	vector<Drawable*> LODstack; //Level of detail stack.
 	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
-	Transform T;
 	Camera objectCamera; //See notes for an issue with this. Add each to gCameras during loadNode().
 	vector<SceneGraphNode*> children;
 	SceneGraphNode * parent;
 	vector<Script*> scripts;
+	Transform T;
+	void setScale(const glm::vec3 &s) { T.scale = s; }
+	void setRotation(const glm::quat &r) { T.rotation = r; }
+	void setTranslation(const glm::vec3 &t) { T.translation = t; }
 	
 	SceneGraphNode(void);
 	~SceneGraphNode(void) { for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; }
 	void draw(Camera &camera); //Make it use the LODstack!
-	void setScale(const glm::vec3 &s) { T.scale = s; for (int i = 0; i < (int)children.size(); ++i) children[i]->setScale(s); }
-	void setRotation(const glm::quat &r) { T.rotation = r; for (int i = 0; i < (int)children.size(); ++i) children[i]->setRotation(r); }
-	void setTranslation(const glm::vec3 &t) { T.translation = t; for (int i = 0; i < (int)children.size(); ++i) children[i]->setTranslation(t); }
+	void update(Camera &camera);
 };
