@@ -20,6 +20,8 @@ int gHeight = 600; // window height
 int gSPP = 16; // samples per pixel
 glm::vec4 backgroundColor;
 
+float gDeltaTimeStep = 0.0f;
+
 ISoundEngine* soundEngine = NULL;
 ISound* music = NULL;
 
@@ -159,11 +161,11 @@ void loadWorldSettings(FILE *F)
 	gMaterials["sprite"]->getAndInitUniforms();
 	gMaterials["yOnly"] = new Material();
 	gMaterials["yOnly"]->name = "yOnly";
-	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("yOnly.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
 	gMaterials["yOnly"]->getAndInitUniforms();
 	gMaterials["allAxes"] = new Material();
 	gMaterials["allAxes"]->name = "allAxes";
-	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("allAxes.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
 	gMaterials["allAxes"]->getAndInitUniforms();
 
 }
@@ -262,19 +264,54 @@ Drawable* loadAndReturnSprite(FILE *F)
 
 	Sprite *sprite = new Sprite();
 
-	while (getToken(F, token, ONE_TOKENS)) {
-		if (token == "}") break;
-		else if (token == "material") {
-			string materialName;
-			getToken(F, materialName, ONE_TOKENS);
-			if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
-			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
-		}
-	}
+	//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
+	if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
+	else ERROR("Unable to locate gMeshes[\"sprite\"], verify its addition in loadWorldSettings()?", false);
 
 	//Assign flat card mesh.
 	if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
 	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		if (token == "}") break;
+		//else if (token == "material") {
+		//	string materialName;
+		//	getToken(F, materialName, ONE_TOKENS);
+		//	if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
+		//	else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+		//}
+		else if (token == "image") {
+			Material* m = sprite->getMaterial();
+			m->textures.push_back(new RGBAImage());
+			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
+			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
+			m->textures.back()->loadPNG(texFileName);
+			m->textures.back()->sendToOpenGL();
+			m->getAndInitUniforms();
+		}
+		//else if (token == "amtRows") getInts(F, &sprite->amtRows, 1); //== sheet.w/frameW.
+		//else if (token == "amtCols") getInts(F, &sprite->amtCols, 1); //== sheet.h/frameH.
+		else if (token == "animDir") getInts(F, &sprite->animDir, 1);
+		else if (token == "animRate") getFloats(F, &sprite->animRate, 1);
+		else if (token == "frameWidth") getInts(F, &sprite->frameWidth, 1);
+		else if (token == "frameHeight") getInts(F, &sprite->frameHeight, 1);
+	}
+
+	if (sprite->getMaterial()->textures.size() < 1) ERROR("Sprite needs an image uSheetName \"img.png\"!");
+	sprite->sheetWidth = sprite->getMaterial()->textures[0]->width;
+	sprite->sheetHeight = sprite->getMaterial()->textures[0]->height;
+	sprite->amtRows = sprite->sheetHeight / sprite->frameHeight;
+	sprite->amtCols = sprite->sheetWidth / sprite->frameWidth;
+
+	//Sheet properties can be accessed via textures[0]; frames assigned as below:
+	for (int r = 0; r < sprite->amtRows; ++r)
+		for (int c = 0; c < sprite->amtCols; ++c)
+			sprite->frames.push_back({
+				round((c*sprite->sheetWidth) / sprite->amtCols) / (float)sprite->sheetWidth, //u1
+				round((r*sprite->sheetHeight) / sprite->amtRows) / (float)sprite->sheetHeight, //v1
+				round(((c + 1)*sprite->sheetWidth) / sprite->amtCols) / (float)sprite->sheetWidth, //u2
+				round(((r + 1)*sprite->sheetHeight) / sprite->amtRows) / (float)sprite->sheetHeight //v2
+			});
 
 	return sprite;
 }
@@ -284,6 +321,10 @@ Drawable* loadAndReturnBillboard(FILE *F)
 	string token;
 
 	Billboard *billboard = new Billboard();
+
+	//Assign flat card mesh.
+	if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
+	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
@@ -303,10 +344,6 @@ Drawable* loadAndReturnBillboard(FILE *F)
 			m->getAndInitUniforms();
 		}
 	}
-
-	//Assign flat card mesh.
-	if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
-	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
 
 	return billboard;
 }
@@ -548,9 +585,12 @@ int main(int numArgs, char **args)
 
 	// start time (used to time framerate)
 	double startTime = TIME();
+	double endTime = 0;
+	gDeltaTimeStep = 0.0f;
 
 	// render loop
 	while (true) {
+		//handle time
 		// update and render
 		update();
 		render();
@@ -563,11 +603,12 @@ int main(int numArgs, char **args)
 
 		double xx, yy;
 		glfwGetCursorPos(gWindow, &xx, &yy);
-		printf("%1.3f %1.3f ", xx, yy);
+		//printf("%1.3f %1.3f ", xx, yy);
 
 		// print framerate
-		double endTime = TIME();
-		printf("\rFPS: %1.0f  ", 1.0 / (endTime - startTime));
+		endTime = TIME();
+		gDeltaTimeStep = 1.0 / (endTime - startTime); //FPS.
+		//printf("\rFPS: %1.0f  ", 1.0 / (endTime - startTime));
 		startTime = endTime;
 
 		// swap buffers

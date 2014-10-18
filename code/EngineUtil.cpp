@@ -16,7 +16,7 @@
 
 void ERROR(const string &msg, bool doExit)
 {
-	cerr << "\nERROR! " << msg << endl;
+	//cerr << "\nERROR! " << msg << endl;
 	if (doExit) {
 #ifdef _DEBUG
 		cin >> doExit;
@@ -624,16 +624,52 @@ void TriMesh::draw(void)
 
 void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material) 
 {
+	//Always face the direction the camera is rotated to look at, i.e. norm(eye-center).
 	glm::vec3 camLookDir = glm::normalize(camera.eye - camera.center);
 	T.rotation.x = -asin(camLookDir.y);
 	T.rotation.y = atan2(camLookDir.x, camLookDir.z);
+
+	//Update the current frame.
+	if (currAccumulatedTime >= animRate) { //Specify animRate in FPS, roughly.
+		activeFrame += animDir; //Could be +1 or -1.
+		if (activeFrame < 0) activeFrame = frames.size() - 1;
+		else if (activeFrame > frames.size() - 1) activeFrame = 0;
+		currAccumulatedTime = 0;
+	}
+	else currAccumulatedTime += gDeltaTimeStep;
+
+	//Set the new sprite frame in the shader.
+	//glUseProgram(material.shaderProgramHandle);
+	//GLint loc = glGetUniformLocation(material.shaderProgramHandle, "uSpriteFrame"); //a vec4 (x,y,z,w) <-> (x,y,w,h).
+	//if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(frames[activeFrame]));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uSpriteFrame.", false);
+#endif
+	//glUseProgram(0);
 }
 
 void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 {
 	glm::vec3 billToCamDir = glm::normalize(camera.eye - T.translation);
-	if (material.name == "allAxes") T.rotation.x = -asin(billToCamDir.y); //+=? //asin() preserves argument sign.
-	T.rotation.y = atan2(billToCamDir.x, billToCamDir.z); //atan2() uses all 4 quadrants with range [0, 2pi] or [-pi,pi] while atan() is [-pi/2, pi/2].
+	//printVec(billToCamDir);
+	//Need to create a new quaternion and multiply T.rotation by it.
+	if (material.name == "allAxes") {
+		//Find phi, the amount we need to rotate around the x-axis.
+		glm::mat4x4 R = glm::axisAngleMatrix(glm::vec3(1,0,0), -asin(billToCamDir.y)); //Rotate by the phi angle -asin(...) around x-axis.
+		T.rotation = glm::quat(R) * T.rotation; //+=? //asin() preserves argument sign.
+		//cout << "phi: " << T.rotation.x << endl;
+	}
+	//Now we find theta, the amount we need to rotate around the y-axis.
+	glm::mat4x4 R = glm::axisAngleMatrix(glm::vec3(0,1,0), atan2(billToCamDir.x, billToCamDir.z)); //Rotate by the theta angle atan2(...) around y-axis.
+	T.rotation = glm::quat(R) * T.rotation;
+	//cout << "the: " << T.rotation.y << endl;
+
+	//if (material.name == "allAxes") {
+	//	T.rotation.x = -asin(billToCamDir.y); //+=? //asin() preserves argument sign.
+	//	cout << "phi: " << T.rotation.x << endl;
+	//}
+	//T.rotation.y = atan2(billToCamDir.x, billToCamDir.z); //atan2() uses all 4 quadrants with range [0, 2pi] or [-pi,pi] while atan() is [-pi/2, pi/2].
+	//cout << "the: " << T.rotation.y << endl;
 		
 	//glm::vec3 camXZdir = glm::normalize(glm::vec3(camera.eye.x - T.translation.x, 0, camera.eye.z - T.translation.z)); //Get (cam-bil) direction's xz part.
 	//T.rotation.y = (camXZdir.x > 0 ? 1 : -1) * atan2(glm::dot(camXZdir, glm::vec3(0, 0, 1))); //Assign this Y rotation to the only-Y billboard's rotation transform in its vertex shader.
@@ -692,49 +728,80 @@ void initLightBuffer() {
 SceneGraphNode::SceneGraphNode(void) {
 	T.scale = glm::vec3(1, 1, 1);
 	T.translation = glm::vec3(0, 0, 0);
+	activeLOD = 0;
 }
 
 void SceneGraphNode::update(Camera &camera) 
 {
+	//Update transform.
 	T.refreshTransform();
 	for (int i = 0; i < (int)children.size(); ++i) children[i]->T.refreshTransform(T.transform);
 	//printMat(transform);
-	LODstack[0]->prepareToDraw(camera, T, *LODstack[0]->material); //Do any class-specific updating.
+
+	//Update LOD stack.
+	//Reverse iter due to the back element in switchingDistances being the smallest threshold.
+	if (LODstack.size() > 1) {
+		int currLOD = 0;
+		glm::vec3 camDistVec = T.translation - camera.eye;
+		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z; //This difference doesn't work because it is between 2 different local spaces, we need it in world space.
+		for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
+			if (camDistSqr <= (*it)*(*it)) {
+				activeLOD = currLOD; 
+				break;
+			}
+			currLOD++;
+		}
+	}
+	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
+	LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material); 
 }
 
 void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
 
-	glUseProgram(this->LODstack[0]->material->shaderProgramHandle);
+	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandle);
 
 	GLint loc;
 
-	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectWorldM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectWorldM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.transform));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldM.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectWorldInverseM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectWorldInverseM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.invTransform));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
 #endif
 
 	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * T.transform;
-	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uObjectPerpsectM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectPerpsectM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[0]->material->shaderProgramHandle, "uViewDirection");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uViewDirection");
+	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.center));
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uViewPosition.", false);
+#endif
+
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uViewPosition");
 	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uSpriteFrame");
+	if (loc != -1) 
+		glUniform4fv(loc, 1, glm::value_ptr(((Sprite*)LODstack[activeLOD])->frames[((Sprite*)LODstack[activeLOD])->activeFrame])); //Need to move into sprite::prepareToDraw...
+#ifdef _DEBUG
+	//else ERROR("Could not load uniform uSpriteFrame.", false);
+#endif
+
 	//For now, hardcoded to render the frontmost LOD stack element.
-	LODstack[0]->draw(camera);
+	LODstack[activeLOD]->draw(camera);
 }

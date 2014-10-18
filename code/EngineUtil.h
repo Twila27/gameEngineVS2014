@@ -46,6 +46,9 @@ void ERROR(const string &msg, bool doExit = true);
 double TIME(void);
 void SLEEP(int millis);
 
+//For controlling the number of time steps we take between update() or render() calls.
+extern float gDeltaTimeStep; //Represents the non-integral amount of frames between last and current game loop. Weak to pausing.
+
 //-------------------------------------------------------------------------//
 // OPENGL STUFF
 //-------------------------------------------------------------------------//
@@ -185,20 +188,22 @@ public:
 		eye += tt; center += tt;
 	}
 	void rotateGlobal(glm::vec3 axis, float angle) {
-		glm::mat4x4 R = glm::axisAngleMatrix(axis, angle);
-		glm::vec4 zz = glm::vec4(eye - center, 0);
-		glm::vec4 Rzz = R*zz;
-		center = eye - glm::vec3(Rzz);
+		glm::mat4x4 R = glm::axisAngleMatrix(axis, angle); //Rotation transform matrix.
+		glm::vec4 zz = glm::vec4(eye - center, 0); //Local z axis == obj.pos - obj.dir, unnormalized?
+		glm::vec4 Rzz = R*zz; //Z-axis rotated.
+		center = eye - glm::vec3(Rzz); //Add back eye via subtraction, as dir is opposite.
 		//
-		glm::vec4 up = glm::vec4(vup, 0);
+		glm::vec4 up = glm::vec4(vup, 0); //Cast vec3 to vec4 for next line.
 		glm::vec4 Rup = R*up;
 		vup = glm::vec3(Rup);
 	}
 	void rotateLocal(glm::vec3 axis, float angle) {
-		glm::vec3 zz = glm::normalize(eye - center);
+		//zz, xx, yy are local axes.
+		//Compute the local axes first, then shift arguments into local space.
+		glm::vec3 zz = glm::normalize(eye - center); 
 		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
 		glm::vec3 yy = glm::cross(zz, xx);
-		glm::vec3 aa = xx*axis.x + yy*axis.y + zz*axis.z;
+		glm::vec3 aa = xx*axis.x + yy*axis.y + zz*axis.z; //Shifts here, aa is the axis you want to rotate around.
 		rotateGlobal(aa, angle);
 	}
 };
@@ -362,32 +367,22 @@ public:
 
 class Sprite : public Drawable {
 public:
-	vector<float[4]> frames; //Need this list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
+	vector<glm::vec4> frames; //Need this list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
 	int frameWidth, frameHeight;
+	int sheetWidth, sheetHeight; //Yanked from material->textures[0].
 	int amtRows, amtCols;
-	int animRate, animDir;
-	int activeFrame;
-	//Plus a tick method to advance and wrap between frames, frameW, frameH, amtRows, amtCols, animDir.
-	//Sheet dims can be accessed via textures[0], frames assigned as below:
-	//	for (r = 0 < amtRows)
-	//		for (c = 0 < amtCols) {
-	//			float u1 = round((c*frameW)/textures[0]->w*100) / 100f;
-	//			float v1 = round((r*frameH)/textures[0]->h*100) / 100f;
-	//			float u2 = round(((c+1)*frameW)/textures[0]->w*100) / 100f;
-	//			float v2 = round(((r+1)*frameH)/textures[0]->h*100) / 100f;
-	//			frames.push_back({u1, v1, u2, v2});
-	//		}
+	int animDir;
+	float animRate, currAccumulatedTime;
+	int activeFrame, activeRow;
 	//Assign alpha (using discard() GLSL function) and texture frame in fragment shader.
 	//May enable back-face culling.
-	//SDL needs sprite{} to specify frameW, frameH, tRate, aDirection, plus a new material{} that has an atlas for a texture and a sprite fragment shader doing the above.
-	//All the above parsed via loadSprite().
-	//We can get the size of frames[][] from nRows := textures[0].w/spriteW * nCols := textures[0].h/spriteH.
+	//We can get the size of frames[][] from nRows or := textures[0].w/spriteW * nCols or := textures[0].h/spriteH.
 	//Stick to a row per animation, kept in activeRow variable in this class.
-	//Sprite subclass will have fields for above attributes, a runtime allocated frames[nRows] pointer to static arrays of size nCols initialized only once by Sprite::init() which calls glGetUniformLocation("spriteFrame").
-	//This is then iterated in Sprite::tick(), in animDirection, and calls glUniform4fv() with the stored loc and the frame as a vec4 with XYZW = XYWH.
-	//GLSL should use the uniform as below:
-	//gl_FragColor = texture2D(Sample0, SpriteFrame.xy + (UV * SpriteFrame.zw)); where UV is the original tex coords of the geometry, which generally should be planar.
-	void tick(void) {}
+	Sprite(void) { 
+		animDir = animRate = amtRows = amtCols = 1; 
+		activeFrame = activeRow = frameWidth = frameHeight = sheetWidth = sheetHeight = currAccumulatedTime = 0;
+	}
+	void switchAnim(int newRow) { activeRow = newRow; } //Just ensure animations have an enum.
 	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
 	virtual void draw(Camera& camera) override;
 };
@@ -419,6 +414,7 @@ class Script {};
 class SceneGraphNode {
 public:
 	string name;
+	int activeLOD;
 	vector<Drawable*> LODstack; //Level of detail stack.
 	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
 	Camera objectCamera; //See notes for an issue with this. Add each to gCameras during loadNode().
