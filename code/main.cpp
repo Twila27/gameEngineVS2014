@@ -309,8 +309,8 @@ Drawable* loadAndReturnSprite(FILE *F)
 			sprite->frames.push_back({
 				round((c*sprite->sheetWidth) / sprite->amtCols) / (float)sprite->sheetWidth, //u1
 				round((r*sprite->sheetHeight) / sprite->amtRows) / (float)sprite->sheetHeight, //v1
-				round(((c + 1)*sprite->sheetWidth) / sprite->amtCols) / (float)sprite->sheetWidth, //u2
-				round(((r + 1)*sprite->sheetHeight) / sprite->amtRows) / (float)sprite->sheetHeight //v2
+				sprite->frameWidth / (float)sprite->sheetWidth, //u2 = currently the normalized location of the top-right, needs to be a normalized absolute width amount
+				sprite->frameHeight / (float)sprite->sheetHeight //v2
 			});
 
 	return sprite;
