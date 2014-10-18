@@ -83,6 +83,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_SPACE:
 			soundEngine->play3D("bell.wav", irrklang::vec3df(gCameras[gActiveCamera]->center.x, gCameras[gActiveCamera]->center.y, gCameras[gActiveCamera]->center.z));
 			break;
+		case GLFW_KEY_F5:
+			gShouldSwapScene = true;
+			break;
 		}
 	}
 
