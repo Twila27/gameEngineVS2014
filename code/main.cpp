@@ -20,6 +20,7 @@ int gHeight = 600; // window height
 int gSPP = 16; // samples per pixel
 glm::vec4 backgroundColor;
 
+const double FIXED_DT = 1 / 60.0;
 float gDeltaTimeStep = 0.0f;
 
 ISoundEngine* soundEngine = NULL;
@@ -38,6 +39,7 @@ vector<char*> gSceneFileNames;
 unsigned int gActiveCamera = 0;
 unsigned int gActiveScene = 0;
 bool gShouldSwapScene = false;
+bool gShowPerFrameDebug = false;
 
 //For controlling keyboard movement and rotation speeds.
 const float step = 0.1f;
@@ -86,6 +88,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_F5:
 			gShouldSwapScene = true;
 			break;
+		case GLFW_KEY_F1:
+			gShowPerFrameDebug = true;
+			break;
 		}
 	}
 
@@ -97,8 +102,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		printf("\n%c\n", (char)key);
 	}
 }
-
-#define tAmt 0.025
+#define tAmt 0.025f
 #define rAmt 0.01f
 void keyboardCameraController(Camera &cam) {
 	if (glfwGetKey(gWindow, 'A')) cam.translateLocal(glm::vec3(-tAmt, 0, 0));
@@ -292,8 +296,6 @@ Drawable* loadAndReturnSprite(FILE *F)
 			m->textures.back()->sendToOpenGL();
 			m->getAndInitUniforms();
 		}
-		//else if (token == "amtRows") getInts(F, &sprite->amtRows, 1); //== sheet.w/frameW.
-		//else if (token == "amtCols") getInts(F, &sprite->amtCols, 1); //== sheet.h/frameH.
 		else if (token == "animDir") getInts(F, &sprite->animDir, 1);
 		else if (token == "animRate") getFloats(F, &sprite->animRate, 1);
 		else if (token == "frameWidth") getInts(F, &sprite->frameWidth, 1);
@@ -415,9 +417,18 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			gNodes[nodeName] = n;
 			n->name = nodeName;
 		}
-		else if (token == "meshInstance") n->LODstack.push_back(loadAndReturnMeshInstance(F));
-		else if (token == "sprite") n->LODstack.push_back(loadAndReturnSprite(F));
-		else if (token == "billboard") n->LODstack.push_back(loadAndReturnBillboard(F));
+		else if (token == "meshInstance") {
+			n->LODstack.push_back(loadAndReturnMeshInstance(F));
+			n->LODstack.back()->type = Drawable::TRIMESHINSTANCE;
+		}
+		else if (token == "sprite") {
+			n->LODstack.push_back(loadAndReturnSprite(F));
+			n->LODstack.back()->type = Drawable::SPRITE;
+		}
+		else if (token == "billboard") {
+			n->LODstack.push_back(loadAndReturnBillboard(F));
+			n->LODstack.back()->type = Drawable::BILLBOARD;
+		}
 		else if (token == "maxRenderDist") getFloats(F, &renderThreshold, 1);
 		else if (token == "translation") getFloats(F, &(n->T.translation[0]), 3);
 		else if (token == "rotation") getFloats(F, &(n->T.rotation[0]), 4);
@@ -439,7 +450,10 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 	//First, the switching distances. 
 		//Given n items on the LODstack, we consider [0, n->renderThreshold].
 		//We subdivide this interval by the amount of objects in the LOD stack.
-	if (renderThreshold == -1.0f) ERROR("Need to specify maxRenderDist in node{}!", false);
+	if (renderThreshold == -1.0f) {
+		ERROR("Need to specify maxRenderDist in node{}!", false);
+		renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
+	}
 	for (float div = 1.0f; div <= (int)n->LODstack.size(); ++div)
 		n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
 		//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
@@ -500,6 +514,7 @@ void update(void)
 		if (music) music->drop();
 		soundEngine->stopAllSounds();
 		glfwTerminate();
+		cout << "\n================================================================================\n";
 		loadScene(gSceneFileNames[gActiveScene]);
 	}
 
@@ -523,8 +538,26 @@ void update(void)
 
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
 
-	if (glfwGetKey(gWindow, GLFW_KEY_R)) gNodes["oNode"]->T.rotation.y += rAmt;
-	if (glfwGetKey(gWindow, GLFW_KEY_F)) gNodes["oNode"]->T.rotation.y -= rAmt;
+	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.rotation.y += rAmt;
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_F)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.rotation.y -= rAmt;
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_T)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.translation.y += rAmt;
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_G)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.translation.y -= rAmt;
+	}
 
 	//// rotate mesh
 	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
@@ -590,28 +623,41 @@ int main(int numArgs, char **args)
 	double startTime = TIME();
 	double endTime = 0;
 	gDeltaTimeStep = 0.0f;
+	double frameTime = 0.0;
+	double dt = 1 / 60.0;
+	double gFPS = 0.0;
 
 	// render loop
 	while (true) {
 		//handle time
-		// update and render
-		update();
+		// update wrapped in the GafferOnPhysics semi-fixed dt loop trick.
+		while (frameTime > 0.0) {
+			double dtTmp = glm::min(frameTime, FIXED_DT);
+			update();
+			frameTime -= dtTmp;
+
+		}	
 		render();
 
 		// handle input
 		glfwPollEvents();
-		//if (glfwGetKey(gWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) break;
 		keyboardCameraController(*gCameras[gActiveCamera]);
 		if (glfwWindowShouldClose(gWindow) != 0) break;
 
-		double xx, yy;
-		glfwGetCursorPos(gWindow, &xx, &yy);
-		//printf("%1.3f %1.3f ", xx, yy);
+		if (gShowPerFrameDebug) {
+			//Print mouse pos.
+			double xx, yy;
+			glfwGetCursorPos(gWindow, &xx, &yy);
+			printf("%1.3f %1.3f ", xx, yy);
 
-		// print framerate
+			//Print framerate.
+			printf("\rFPS: %1.0f  ", gDeltaTimeStep);
+		}
+		//Update framerate.
 		endTime = TIME();
-		gDeltaTimeStep = 1.0 / (endTime - startTime); //FPS.
-		//printf("\rFPS: %1.0f  ", 1.0 / (endTime - startTime));
+		/*gFPS = */gDeltaTimeStep = 1.0 / (endTime - startTime); //FPS.
+		frameTime = endTime - startTime;
+
 		startTime = endTime;
 
 		// swap buffers
@@ -625,7 +671,7 @@ int main(int numArgs, char **args)
 
 	// Close OpenGL window and terminate GLFW
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
-	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it;
+	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it; //Because array.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;

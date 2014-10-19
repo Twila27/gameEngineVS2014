@@ -146,12 +146,13 @@ public:
 	glm::mat4x4 transform;
 	glm::mat4x4 invTransform;
 
-	void refreshTransform(const glm::mat4x4 &parentTransform = glm::mat4()) //Default argument is identity matrix.
+	void refreshTransform(const glm::mat4x4 &parentTransform = glm::mat4(), const glm::vec3 &parentTrans = glm::vec3(1), const glm::vec3 &parentScale = glm::vec3(0), bool shouldRotate = true)
 	{
 		glm::mat4x4 Mtrans = glm::translate(translation);
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
-		transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
+		if (shouldRotate) transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
+		else transform = glm::translate(parentTrans) * glm::scale(parentScale) * Mtrans * Mrot * Mscale; // child will rot indep of parent
 		invTransform = glm::inverse(transform);
 	}
 };
@@ -352,6 +353,8 @@ class Drawable {
 public:
 	TriMesh *triMesh;
 	Material *material;
+	enum TYPE { TRIMESHINSTANCE, SPRITE, BILLBOARD };
+	TYPE type;
 
 	Drawable(void) { triMesh = nullptr; material = nullptr; }
 	Material* getMaterial() { return material; }
@@ -384,12 +387,12 @@ public:
 	}
 	void switchAnim(int newRow) { activeRow = newRow; } //Just ensure animations have an enum.
 	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
-	virtual void draw(Camera& camera) override;
+	//virtual void draw(Camera& camera) override;
 };
 
 class Billboard : public Sprite {
 public:
-	void draw(Camera& camera) override;
+	//void draw(Camera& camera) override;
 	void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
 };
 
@@ -397,7 +400,7 @@ public:
 class TriMeshInstance : public Drawable
 {
 public:
-	void draw(Camera& camera) override;
+	//void draw(Camera& camera) override;
 };
 
 
@@ -431,3 +434,10 @@ public:
 	void draw(Camera &camera); //Make it use the LODstack!
 	void update(Camera &camera);
 };
+
+//===========
+// TEXT API
+//===========
+void initText2D(const char * texturePath);
+void printText2D(const char * text, int x, int y, int size);
+void cleanupText2D();
