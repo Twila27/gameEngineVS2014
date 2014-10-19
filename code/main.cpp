@@ -89,7 +89,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			gShouldSwapScene = true;
 			break;
 		case GLFW_KEY_F1:
-			gShowPerFrameDebug = true;
+			gShowPerFrameDebug = !gShowPerFrameDebug;
 			break;
 		}
 	}
@@ -127,6 +127,8 @@ string ONE_TOKENS = "{}[]()<>+-*/,;";
 void loadWorldSettings(FILE *F)
 {
 	string token, t;
+	string fontFileName;
+	int fontTexNumRows(-1), fontTexNumCols(-1);
 	while (getToken(F, token, ONE_TOKENS)) {
 		//cout << "  " << token << endl;
 		if (token == "}") break;
@@ -134,6 +136,9 @@ void loadWorldSettings(FILE *F)
 		else if (token == "width") getInts(F, &gWidth, 1);
 		else if (token == "height") getInts(F, &gHeight, 1);
 		else if (token == "spp") getInts(F, &gSPP, 1);
+		else if (token == "debugFont") getToken(F, fontFileName, ONE_TOKENS);
+		else if (token == "fontTexNumRows") getInts(F, &fontTexNumRows, 1);
+		else if (token == "fontTexNumCols") getInts(F, &fontTexNumCols, 1);
 		else if (token == "backgroundColor") getFloats(F, &backgroundColor[0], 3);
 		else if (token == "backgroundMusic") {
 			string fileName, fullFileName;
@@ -148,6 +153,9 @@ void loadWorldSettings(FILE *F)
 	// Initialize the window with OpenGL context
 	gWindow = createOpenGLWindow(gWidth, gHeight, gWindowTitle.c_str(), gSPP);
 	glfwSetKeyCallback(gWindow, keyCallback);
+
+	// Load the font.
+	//if (fontTexNumRows != -1) initText2D(fontFileName.c_str(), fontTexNumRows, fontTexNumCols);
 
 	// Prepare the lights.
 	initLightBuffer();
@@ -458,7 +466,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
 		//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
 		//The node isn't rendered when the distance to the camera center is past its threshold.
-
+	
 	//Second, 
 
 	return n;
@@ -518,26 +526,9 @@ void update(void)
 		loadScene(gSceneFileNames[gActiveScene]);
 	}
 
-	///*
-	//// move mesh instances
-	//for (int i = 0; i < (int)gMeshInstances.size(); ++i) {
-	//	gMeshInstances[i]->setTranslation(glm::vec3(gMeshInstances[i]->instanceTransform.translation.x + 0.003f, gMeshInstances[i]->instanceTransform.translation.y, gMeshInstances[i]->instanceTransform.translation.z));
-	//	if (gMeshInstances[i]->instanceTransform.translation.x >= 1.0f) gMeshInstances[i]->setTranslation(glm::vec3(-1, gMeshInstances[i]->instanceTransform.translation.y, gMeshInstances[i]->instanceTransform.translation.z));
-	//}
-	//gMeshInstance.translation[0] += 0.003f;
-	//if (gMeshInstance.translation[0] >= 1.0f) gMeshInstance.translation[0] = -1.0f;
-	//   */
-	//
-	//// scale mesh instance
-	//static float dScale = 0.0005f;
-	//float scale = gMeshInstance.T.scale[0];
-	//scale += dScale;
-	//if (scale > 1.25f) dScale = -0.0005f;
-	//if (scale < 0.25f) dScale = 0.0005f;
-	//gMeshInstance.setScale(glm::vec3(scale));
-
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
 
+	//Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
 	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
 		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
 		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
@@ -559,15 +550,6 @@ void update(void)
 			it->second->T.translation.y -= rAmt;
 	}
 
-	//// rotate mesh
-	//glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f));
-	//gMeshInstance.T.rotation *= r;
-	//
-	//gMeshInstance.diffuseColor += glm::vec4(0.0013f, 0.000921f, 0.00119f, 0.0f);
-	//if (gMeshInstance.diffuseColor[0] > 1.0f) gMeshInstance.diffuseColor[0] = 0.25f;
-	//if (gMeshInstance.diffuseColor[1] > 1.0f) gMeshInstance.diffuseColor[1] = 0.25f;
-	//if (gMeshInstance.diffuseColor[2] > 1.0f) gMeshInstance.diffuseColor[2] = 0.25f;
-
 
 }
 
@@ -580,6 +562,10 @@ void render(void)
 	// clear color and depth buffer
 	glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if (gShowPerFrameDebug) {
+		//printText2D("This is a test", 0, 0, 32);
+	}
 
 	//Update lights.
 	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
@@ -675,6 +661,7 @@ int main(int numArgs, char **args)
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
+	//cleanupText2D(); // Delete font VBO, shader, texture.
 	glfwTerminate();
 
 	return 0;

@@ -755,7 +755,8 @@ void SceneGraphNode::update(Camera &camera)
 		int currLOD = 0;
 		glm::vec3 camDistVec = T.translation - camera.eye;
 		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z; //This difference doesn't work because it is between 2 different local spaces, we need it in world space.
-		for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
+		if (camDistSqr > switchingDistances[0]*switchingDistances[0]) activeLOD = LODstack.size() - 1; //Outside all thresholds.
+		else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
 			if (camDistSqr <= (*it)*(*it)) {
 				activeLOD = currLOD; 
 				break;
@@ -823,10 +824,15 @@ RGBAImage * textTex;
 GLuint textVboID;
 GLuint textUVboID;
 GLuint textShaderProgramHandle;
-GLuint textUniformLoc;
+GLuint fontTexNumRows, fontTexNumCols;
 
+/*
 //Call with a path to a font texture.
-void initText2D(const char * texturePath){
+void initText2D(const char * texturePath, int numTexRows, int numTexCols) {
+
+	// Save arguments.
+	fontTexNumRows = numTexRows;
+	fontTexNumCols = numTexCols;
 
 	// Initialize texture
 	textTex = new RGBAImage();
@@ -839,12 +845,35 @@ void initText2D(const char * texturePath){
 	// Initialize Shader
 	textShaderProgramHandle = createShaderProgram(loadShader("fontShader.vs", GL_VERTEX_SHADER), loadShader("fontShader.fs", GL_FRAGMENT_SHADER));
 
-	// Initialize uniforms' IDs
-	textUniformLoc = glGetUniformLocation(textShaderProgramHandle, "uFontTex");
+	// Initialize texture uniform ID, the sampler, the texture.
+	textTex->id = glGetUniformLocation(textShaderProgramHandle, "uFontTex");
+	
+	glGenSamplers(1, &textTex->samplerId);
+	glGenTextures(1, &textTex->textureId);
+	
 
+	// Bind shader
+	glUseProgram(textShaderProgramHandle);
+
+	// Bind texture
+	glActiveTexture(GL_TEXTURE0);
+	// Set our "myTextureSampler" sampler to user Texture Unit 0
+	glUniform1i(textTex->id, 0);
+	glBindTexture(GL_TEXTURE_2D, textTex->textureId);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textTex->width, textTex->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textTex->pixels[0]);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindSampler(textTex->textureId, textTex->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+	glUseProgram(0);
 }
 
-void printText2D(const char * text, int x, int y, int size){
+void printText2D(const char * text, int x, int y, int size) {
+
+	if (fontTexNumCols <= 0) return;
 
 	unsigned int length = strlen(text);
 
@@ -853,31 +882,33 @@ void printText2D(const char * text, int x, int y, int size){
 	vector<glm::vec2> UVs;
 	for (unsigned int i = 0; i<length; i++){
 
+		//Calculate the vertices, the regions on the screen the letters appear at.
 		glm::vec2 vertex_up_left = glm::vec2(x + i*size, y + size);
 		glm::vec2 vertex_up_right = glm::vec2(x + i*size + size, y + size);
 		glm::vec2 vertex_down_right = glm::vec2(x + i*size + size, y);
 		glm::vec2 vertex_down_left = glm::vec2(x + i*size, y);
 
-		vertices.push_back(vertex_up_left);
-		vertices.push_back(vertex_down_left);
-		vertices.push_back(vertex_up_right);
+		vertices.push_back(vertex_up_left); //(x,h)
+		vertices.push_back(vertex_down_left); //(x,y)
+		vertices.push_back(vertex_up_right); //(w,h)
+		vertices.push_back(vertex_down_right); //(w,y)
+		vertices.push_back(vertex_up_right); //z==x, as 2D
+		vertices.push_back(vertex_down_left); //z===y, as 2D
 
-		vertices.push_back(vertex_down_right);
-		vertices.push_back(vertex_up_right);
-		vertices.push_back(vertex_down_left);
-
-		char character = text[i];
-		float uv_x = (character % 16) / 16.0f;
-		float uv_y = (character / 16) / 16.0f;
+		//Now the UVs, the portions of the font texture those letters correspond to.
+		//It relies on this ASCII division trick.
+		char character = text[i]; //84 for T.
+		float uv_x = (character % fontTexNumCols) / (float)fontTexNumCols; //4/16 = .25. for T.
+		float uv_y = (character / fontTexNumRows) / (float)fontTexNumRows; //84/16/16 = .328125 for T.
 
 		glm::vec2 uv_up_left = glm::vec2(uv_x, uv_y);
-		glm::vec2 uv_up_right = glm::vec2(uv_x + 1.0f / 16.0f, uv_y);
-		glm::vec2 uv_down_right = glm::vec2(uv_x + 1.0f / 16.0f, (uv_y + 1.0f / 16.0f));
-		glm::vec2 uv_down_left = glm::vec2(uv_x, (uv_y + 1.0f / 16.0f));
+		glm::vec2 uv_up_right = glm::vec2(uv_x + 1.0f / (float)fontTexNumCols, uv_y);
+		glm::vec2 uv_down_right = glm::vec2(uv_x + 1.0f / (float)fontTexNumCols, (uv_y + 1.0f / (float)fontTexNumRows));
+		glm::vec2 uv_down_left = glm::vec2(uv_x, (uv_y + 1.0f / (float)fontTexNumRows));
+
 		UVs.push_back(uv_up_left);
 		UVs.push_back(uv_down_left);
 		UVs.push_back(uv_up_right);
-
 		UVs.push_back(uv_down_right);
 		UVs.push_back(uv_up_right);
 		UVs.push_back(uv_down_left);
@@ -891,12 +922,12 @@ void printText2D(const char * text, int x, int y, int size){
 	glUseProgram(textShaderProgramHandle);
 
 	// Bind texture
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textUniformLoc);
+	//glActiveTexture(GL_TEXTURE0);
 	// Set our "myTextureSampler" sampler to user Texture Unit 0
-	glUniform1i(textUniformLoc, 0);
+	glUniform1i(textTex->id, 0);
+	glBindTexture(GL_TEXTURE_2D, textTex->textureId);
 
-	// 1rst attribute buffer : vertices
+	// 1st attribute buffer : vertices
 	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, textVboID);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -917,17 +948,21 @@ void printText2D(const char * text, int x, int y, int size){
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 
+	glUseProgram(0);
 }
 
-void cleanupText2D(){
+void cleanupText2D() {
+
+	if (textVboID == 0) return;
 
 	// Delete buffers
 	glDeleteBuffers(1, &textVboID);
 	glDeleteBuffers(1, &textUVboID);
 
 	// Delete texture
-	glDeleteTextures(1, &textUniformLoc);
+	glDeleteTextures(1, &textTex->id);
 
 	// Delete shader
 	glDeleteProgram(textShaderProgramHandle);
 }
+*/
