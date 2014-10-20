@@ -641,7 +641,7 @@ void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material)
 		else if (activeFrame > frames.size() - 1) activeFrame = 0;
 		currAccumulatedTime = 0;
 	}
-	else currAccumulatedTime += gDeltaTimeStep;
+	else currAccumulatedTime += FIXED_DT;
 
 	//Set the new sprite frame in the shader.
 	//glUseProgram(material.shaderProgramHandle);
@@ -669,20 +669,13 @@ void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 	T.rotation = glm::quat(R) * T.rotation;
 	//cout << "the: " << T.rotation.y << endl;
 
-	//if (material.name == "allAxes") {
-	//	T.rotation.x = -asin(billToCamDir.y); //+=? //asin() preserves argument sign.
-	//	cout << "phi: " << T.rotation.x << endl;
-	//}
-	//T.rotation.y = atan2(billToCamDir.x, billToCamDir.z); //atan2() uses all 4 quadrants with range [0, 2pi] or [-pi,pi] while atan() is [-pi/2, pi/2].
+	/*if (material.name == "allAxes") {
+		T.rotation.x = -asin(billToCamDir.y); //+=? //asin() preserves argument sign.
+		//cout << "phi: " << T.rotation.x << endl;
+	}
+	T.rotation.y = atan2(billToCamDir.x, billToCamDir.z); //atan2() uses all 4 quadrants with range [0, 2pi] or [-pi,pi] while atan() is [-pi/2, pi/2].
 	//cout << "the: " << T.rotation.y << endl;
-		
-	//glm::vec3 camXZdir = glm::normalize(glm::vec3(camera.eye.x - T.translation.x, 0, camera.eye.z - T.translation.z)); //Get (cam-bil) direction's xz part.
-	//T.rotation.y = (camXZdir.x > 0 ? 1 : -1) * atan2(glm::dot(camXZdir, glm::vec3(0, 0, 1))); //Assign this Y rotation to the only-Y billboard's rotation transform in its vertex shader.
-
-	//if (material.name == "allAxes") {
-	//	glm::vec3 camDir = glm::normalize(glm::vec3(camera.eye.x - T.translation.x, camera.eye.y - T.translation.y, camera.eye.z - T.translation.z)); //Get (cam-bil) direction's xyz part.
-	//	T.rotation.x = -asin(camDir.y); // Add an initial rotation based on camera location to the x of the fully-facing-you billboard's rotation transform in its vertex shader.
-	//}
+	*/
 }
 
 void Drawable::draw(Camera &camera) 

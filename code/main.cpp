@@ -20,8 +20,7 @@ int gHeight = 600; // window height
 int gSPP = 16; // samples per pixel
 glm::vec4 backgroundColor;
 
-const double FIXED_DT = 1 / 60.0;
-float gDeltaTimeStep = 0.0f;
+const double FIXED_DT = 0.01;
 
 ISoundEngine* soundEngine = NULL;
 ISound* music = NULL;
@@ -606,22 +605,27 @@ int main(int numArgs, char **args)
 	loadScene(gSceneFileNames[0]);
 
 	// start time (used to time framerate)
-	double startTime = TIME();
-	double endTime = 0;
-	gDeltaTimeStep = 0.0f;
+	double newTime = 0;
 	double frameTime = 0.0;
-	double dt = 1 / 60.0;
+	double runningTime = 0.0;
+	double currTime = TIME();
+	double accumulator = 0.0;
 	double gFPS = 0.0;
 
 	// render loop
 	while (true) {
 		//handle time
-		// update wrapped in the GafferOnPhysics semi-fixed dt loop trick.
-		while (frameTime > 0.0) {
-			double dtTmp = glm::min(frameTime, FIXED_DT);
-			update();
-			frameTime -= dtTmp;
+		newTime = TIME();
+		frameTime = newTime - currTime;
+		currTime = newTime;
 
+		accumulator += frameTime;
+
+		// update wrapped in the GafferOnPhysics final dt loop trick.
+		while (accumulator >= FIXED_DT) {
+			update();
+			accumulator -= FIXED_DT;
+			runningTime += FIXED_DT;
 		}	
 		render();
 
@@ -637,15 +641,11 @@ int main(int numArgs, char **args)
 			printf("%1.3f %1.3f ", xx, yy);
 
 			//Print framerate.
-			printf("\rFPS: %1.0f  ", gDeltaTimeStep);
+			printf("\rFPS: %1.0f  ", gFPS);
 		}
 		//Update framerate.
-		endTime = TIME();
-		/*gFPS = */gDeltaTimeStep = 1.0 / (endTime - startTime); //FPS.
-		frameTime = endTime - startTime;
-
-		startTime = endTime;
-
+		gFPS = 1.0 / (newTime - currTime);
+		
 		// swap buffers
 		//SLEEP(1); // sleep 1 millisecond to avoid busy waiting
 		glfwSwapBuffers(gWindow);

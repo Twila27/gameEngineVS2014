@@ -47,7 +47,7 @@ double TIME(void);
 void SLEEP(int millis);
 
 //For controlling the number of time steps we take between update() or render() calls.
-extern float gDeltaTimeStep; //Represents the non-integral amount of frames between last and current game loop. Weak to pausing.
+extern const double FIXED_DT; //Represents the non-integral amount of frames between last and current game loop. Weak to pausing.
 
 //-------------------------------------------------------------------------//
 // OPENGL STUFF
