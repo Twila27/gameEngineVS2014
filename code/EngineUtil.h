@@ -420,17 +420,18 @@ public:
 	int activeLOD;
 	vector<Drawable*> LODstack; //Level of detail stack.
 	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
-	Camera objectCamera; //See notes for an issue with this. Add each to gCameras during loadNode().
+	vector<Camera*> cameras; //How to get it to follow the object?
 	vector<SceneGraphNode*> children;
 	SceneGraphNode * parent;
 	vector<Script*> scripts;
 	Transform T;
+	ISound * objSound;
 	void setScale(const glm::vec3 &s) { T.scale = s; }
 	void setRotation(const glm::quat &r) { T.rotation = r; }
 	void setTranslation(const glm::vec3 &t) { T.translation = t; }
 	
 	SceneGraphNode(void);
-	~SceneGraphNode(void) { for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; }
+	~SceneGraphNode(void);
 	void draw(Camera &camera); //Make it use the LODstack!
 	void update(Camera &camera);
 };

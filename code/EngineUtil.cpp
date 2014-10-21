@@ -728,6 +728,10 @@ SceneGraphNode::SceneGraphNode(void) {
 	T.translation = glm::vec3(0, 0, 0);
 	activeLOD = 0;
 }
+SceneGraphNode::~SceneGraphNode(void) {
+	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
+	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
+}
 
 void SceneGraphNode::update(Camera &camera) 
 {

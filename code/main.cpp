@@ -59,21 +59,25 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	//Ctrl changes cameras, Shift changes scenes.
 	if (action == GLFW_PRESS) {
 		switch (key) {
+		case GLFW_KEY_LEFT_CONTROL:
+			gActiveCamera = (gActiveCamera == 0) ? gCameras.size() - 1 : gActiveCamera - 1;
+			break;
+		case GLFW_KEY_RIGHT_CONTROL:
+			gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
+			break;
+		case GLFW_KEY_LEFT_SHIFT:
+			gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
+			gShouldSwapScene = true;
+			break;
+		case GLFW_KEY_RIGHT_SHIFT:
+			gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
+			gShouldSwapScene = true;
+			break;
 		case GLFW_KEY_LEFT:
-			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == 0) ? gCameras.size() - 1 : gActiveCamera - 1;
-			else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
-				gActiveScene = (gActiveScene == 0) ? gSceneFileNames.size() - 1 : gActiveScene - 1;
-				gShouldSwapScene = true;
-			}
-			else gCameras[gActiveCamera]->translateLocal(glm::vec3(-step, 0, 0));
+			gCameras[gActiveCamera]->translateLocal(glm::vec3(-step, 0, 0));
 			break;
 		case GLFW_KEY_RIGHT:
-			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) gActiveCamera = (gActiveCamera == gCameras.size() - 1) ? 0 : gActiveCamera + 1;
-			else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
-				gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
-				gShouldSwapScene = true;
-			}
-			else gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
+			gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
 			break;
 		case GLFW_KEY_LEFT_ALT:
 			soundEngine->setAllSoundsPaused(true);
@@ -390,7 +394,7 @@ void loadLight(FILE *F)
 	++gNumLights;
 }
 
-void loadCamera(FILE *F)
+Camera* loadCamera(FILE *F)
 {
 	string token;
 
@@ -407,6 +411,8 @@ void loadCamera(FILE *F)
 	}
 
 	gCameras.back()->refreshTransform((float)gWidth, (float)gHeight);
+
+	return gCameras.back();
 }
 
 SceneGraphNode* loadAndReturnNode(FILE *F) 
@@ -443,6 +449,10 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		else if (token == "node") {
 			n->children.push_back(loadAndReturnNode(F));
 			n->children.back()->parent = n;
+		}
+		else if (token == "camera") {
+			n->cameras.push_back(loadCamera(F));
+			//gCameras.push_back(n->cameras.back()); //Already done in loadCamera().
 		}
 		else if (token == "script") {
 			string scriptName;
@@ -658,7 +668,7 @@ int main(int numArgs, char **args)
 
 	// Close OpenGL window and terminate GLFW
 	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
-	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it; //Because array.
+	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it; //Because noptr array.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
 	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
 	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
