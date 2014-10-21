@@ -86,7 +86,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			soundEngine->setAllSoundsPaused(false);
 			break;
 		case GLFW_KEY_SPACE:
-			soundEngine->play3D("bell.wav", irrklang::vec3df(gCameras[gActiveCamera]->center.x, gCameras[gActiveCamera]->center.y, gCameras[gActiveCamera]->center.z));
+			soundEngine->play3D("bell.wav", irrklang::vec3df(gCameras[gActiveCamera]->eye.x, gCameras[gActiveCamera]->eye.y, gCameras[gActiveCamera]->eye.z));
 			break;
 		case GLFW_KEY_F5:
 			gShouldSwapScene = true;
@@ -147,9 +147,8 @@ void loadWorldSettings(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
-
+			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
-			ISound* music = soundEngine->play2D(fullFileName.c_str(), true);
 		}
 	}
 
@@ -460,6 +459,14 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
 			else ERROR("Unable to locate gScripts[" + scriptName + "], is the name right in .scene?", false);
 		}
+		else if (token == "sound") {
+			string fileName, fullFileName;
+			getToken(F, fileName, ONE_TOKENS);
+			getFullFileName(fileName, fullFileName);
+			n->sound = soundEngine->play2D(fullFileName.c_str(), false, false, true);
+			n->sound->stop();
+			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
+		}
 	}
 
 	//Auto-generate the other class members that the parser isn't supplying.
@@ -476,7 +483,8 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
 		//The node isn't rendered when the distance to the camera center is past its threshold.
 	
-	//Second, 
+	//Second, configure cameras to be oriented to the node.
+	n->setTranslation(n->T.translation); //Also handles camera updates.
 
 	return n;
 }
@@ -552,15 +560,24 @@ void update(void)
 	if (glfwGetKey(gWindow, GLFW_KEY_T)) {
 		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
 		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.translation.y += rAmt;
+			//it->second->setTranslation(glm::vec3(0, rAmt, 0));
+			it->second->addTranslation(glm::vec3(0, rAmt, 0));
 	}
 	if (glfwGetKey(gWindow, GLFW_KEY_G)) {
 		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
 		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.translation.y -= rAmt;
+			//it->second->setTranslation(glm::vec3(0, -rAmt, 0));
+			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
 	}
 
-
+	//Play the sound of an object within the specified number range below, if it isn't yet played.
+	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) {
+		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;		
+		if (it->second->sound != nullptr &&	!soundEngine->isCurrentlyPlaying(it->second->sound->getSoundSource())
+			&& camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z <= 10.0)
+			soundEngine->play3D(it->second->sound->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
+	}
 }
 
 //-------------------------------------------------------------------------//

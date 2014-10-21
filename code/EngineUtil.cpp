@@ -731,6 +731,7 @@ SceneGraphNode::SceneGraphNode(void) {
 SceneGraphNode::~SceneGraphNode(void) {
 	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
 	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
+	if (sound != nullptr) sound->drop();
 }
 
 void SceneGraphNode::update(Camera &camera) 
@@ -751,7 +752,7 @@ void SceneGraphNode::update(Camera &camera)
 	if (LODstack.size() > 1) {
 		int currLOD = 0;
 		glm::vec3 camDistVec = T.translation - camera.eye;
-		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z; //This difference doesn't work because it is between 2 different local spaces, we need it in world space.
+		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
 		if (camDistSqr > switchingDistances[0]*switchingDistances[0]) activeLOD = LODstack.size() - 1; //Outside all thresholds.
 		else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
 			if (camDistSqr <= (*it)*(*it)) {

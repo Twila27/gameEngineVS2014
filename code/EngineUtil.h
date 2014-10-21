@@ -180,15 +180,15 @@ public:
 			(float)(screenWidth / screenHeight), (float)znear, (float)zfar);
 		worldViewProject = project * worldView;
 	}
-	void translateGlobal(glm::vec3 &t) { eye += t; center += t; }
-	void translateLocal(glm::vec3 &t) {
+	void translateGlobal(const glm::vec3 &t) { eye += t; center += t; }
+	void translateLocal(const glm::vec3 &t) {
 		glm::vec3 zz = glm::normalize(eye - center);
 		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
 		glm::vec3 yy = glm::cross(zz, xx);
 		glm::vec3 tt = t.x*xx + t.y*yy + t.z*zz;
 		eye += tt; center += tt;
 	}
-	void rotateGlobal(glm::vec3 axis, float angle) {
+	void rotateGlobal(const glm::vec3 &axis, const float angle) {
 		glm::mat4x4 R = glm::axisAngleMatrix(axis, angle); //Rotation transform matrix.
 		glm::vec4 zz = glm::vec4(eye - center, 0); //Local z axis == obj.pos - obj.dir, unnormalized?
 		glm::vec4 Rzz = R*zz; //Z-axis rotated.
@@ -198,7 +198,7 @@ public:
 		glm::vec4 Rup = R*up;
 		vup = glm::vec3(Rup);
 	}
-	void rotateLocal(glm::vec3 axis, float angle) {
+	void rotateLocal(const glm::vec3 &axis, const float angle) {
 		//zz, xx, yy are local axes.
 		//Compute the local axes first, then shift arguments into local space.
 		glm::vec3 zz = glm::normalize(eye - center); 
@@ -425,14 +425,22 @@ public:
 	SceneGraphNode * parent;
 	vector<Script*> scripts;
 	Transform T;
-	ISound * objSound;
+	ISound * sound;
 	void setScale(const glm::vec3 &s) { T.scale = s; }
-	void setRotation(const glm::quat &r) { T.rotation = r; }
-	void setTranslation(const glm::vec3 &t) { T.translation = t; }
+	void setRotation(const glm::quat &r) { T.rotation = r; } //for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->rotateGlobal(r); }
+	void addTranslation(const glm::vec3 &t) { T.translation += t; for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->translateLocal(t); }
+	void setTranslation(const glm::vec3 &t) { 
+		T.translation = t; 
+		for (int i = 0; i < (int)cameras.size(); ++i) {
+			cameras[i]->center -= cameras[i]->eye; //Tmp storing this dist in center.
+			cameras[i]->eye = t; //However, center needs to still be eye-center away from eye.
+			cameras[i]->center = t + cameras[i]->center; //Should preserve eye and center, both translated to the new t.
+		}
+	}
 	
 	SceneGraphNode(void);
 	~SceneGraphNode(void);
-	void draw(Camera &camera); //Make it use the LODstack!
+	void draw(Camera &camera);
 	void update(Camera &camera);
 };
 
