@@ -486,6 +486,7 @@ void loadScene(const char *sceneFile)
 	if (gLightsUBO != NULL_HANDLE) glDeleteBuffers(1, &gLightsUBO);
 	gNumLights = 0;
 	gLightsUBO = NULL_HANDLE;
+	gActiveCamera = 0;
 
 	//Add the path used for the scene to the EngineUtil's PATH variable.
 	string sceneFileName = sceneFile;
