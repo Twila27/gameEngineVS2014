@@ -425,15 +425,15 @@ void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipM
 {
 	if (width <= 0 || height <= 0) return;
 
-	//glGenTextures(1, &textureId);
-	//glBindTexture(GL_TEXTURE_2D, textureId); //Handled in Material init for uniforms.
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &pixels[0]); //<-- Why?
-	//if (createMipMap) glGenerateMipmap(GL_TEXTURE_2D);
+	glGenTextures(1, &textureId);
+	glBindTexture(GL_TEXTURE_2D, textureId); //Handled in Material init for uniforms.
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &pixels[0]); //<-- The big call that actually creates the info used by the buffer made in glGenTextures()?
+	if (createMipMap) glGenerateMipmap(GL_TEXTURE_2D);
 
-	//glGenSamplers(1, &samplerId);
-	//glBindSampler(textureId, samplerId);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	glGenSamplers(1, &samplerId);
+	glBindSampler(textureId, samplerId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 }
 
 
@@ -456,25 +456,23 @@ void Material::bindMaterial(void) {
 
 	glUseProgram(shaderProgramHandle);
 
-	GLint loc;
-
 	//Set up textures.
 	for (int i = 0; i < (int)textures.size(); ++i) {
-		loc = textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
-		if (loc != -1) {
-			glGenSamplers(1, &textures[i]->samplerId);
-			glGenTextures(1, &textures[i]->textureId);
+		textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
+		if (textures[i]->id != -1) {
+			//glGenSamplers(1, &textures[i]->samplerId);
+			//glGenTextures(1, &textures[i]->textureId);
 			glActiveTexture(GL_TEXTURE0 + i); //Set active texture unit in GL context.
 			glUniform1i(textures[i]->id, i); //Set the handle to the texture being used?
 			if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
 			else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
 			//Important find--glBindTexture() needs to be called BEFORE glTexImage2D(), to not generate a bunch of stupid empty images every time.
 			//Note that we axed the sendToOpenGL() method of RGBAImage*, all that code is here.
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
-			glGenerateMipmap(GL_TEXTURE_2D);
+			//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]); //<-- THIS is the method we do NOT want to call repeatedly.
+			//glGenerateMipmap(GL_TEXTURE_2D); //<-- Possibly also a memory biter.
 			glBindSampler(textures[i]->textureId, textures[i]->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		}
 #ifdef _DEBUG
 		else ERROR("\n\tFailure in texture setup loop.", false);
@@ -482,8 +480,8 @@ void Material::bindMaterial(void) {
 	}
 
 	for (int i = 0; i < (int)colors.size(); ++i) {
-		loc = colors[i]->id = glGetUniformLocation(shaderProgramHandle, colors[i]->name.c_str());
-		if (loc != -1) glUniform4fv(loc, 1, &colors[i]->val[0]);
+		colors[i]->id = glGetUniformLocation(shaderProgramHandle, colors[i]->name.c_str());
+		if (colors[i]->id != -1) glUniform4fv(colors[i]->id, 1, &colors[i]->val[0]);
 #ifdef _DEBUG
 		else ERROR("\n\tFailure in color setup loop.", false);
 #endif
@@ -728,7 +726,7 @@ void Drawable::draw(Camera &camera)
 {
 	glUseProgram(material->shaderProgramHandle);
 
-	//material->bindMaterial();
+	material->bindMaterial();
 
 	triMesh->draw();
 
