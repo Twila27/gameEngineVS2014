@@ -49,6 +49,16 @@ void SLEEP(int millis);
 //For controlling the number of time steps we take between update() or render() calls.
 extern const double FIXED_DT; //Represents the non-integral amount of frames between last and current game loop. Weak to pausing.
 
+template<class T> class NameIdVal //Used for Colors in Material right now.
+{
+public:
+	string name;
+	int id;
+	T val;
+	NameIdVal() { name = ""; id = -1; }
+	NameIdVal(string &n, int i, T &v) { name = n; id = i; val = v; }
+};
+
 //-------------------------------------------------------------------------//
 // OPENGL STUFF
 //-------------------------------------------------------------------------//
@@ -251,7 +261,7 @@ public:
 	glm::vec4 ambientIntensity;
 	glm::vec4 emissiveColor;
 	vector<RGBAImage*> textures;
-	vector<glm::vec4> colors; //!
+	vector<NameIdVal<glm::vec4>* > colors; //!
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
@@ -262,72 +272,7 @@ public:
 		glDeleteProgram(shaderProgramHandle);
 	}
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
-	void getAndInitUniforms()
-	{ //Placing this code here potentially enables shader program swaps. Can move it to the .cpp though.
-
-		if (shaderProgramHandle == NULL_HANDLE) {
-			ERROR("Cannot get uniforms because the shader program handle is not set.");
-			return;
-		}
-
-		glUseProgram(shaderProgramHandle);
-
-		GLint loc;
-
-		//Set up textures.
-		for (int i = 0; i < (int)textures.size(); ++i) {
-			loc = textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
-			if (loc != -1) {
-				glGenSamplers(1, &textures[i]->samplerId);
-				glGenTextures(1, &textures[i]->textureId);
-
-				glActiveTexture(GL_TEXTURE0 + i); //Set active texture unit in GL context.
-				glUniform1i(textures[i]->id, i); //Set the handle to the texture being used?
-
-				if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
-				else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
-
-				//Important find--glBindTexture() needs to be called BEFORE glTexImage2D(), to not generate a bunch of stupid empty images every time.
-				//Note that we axed the sendToOpenGL() method of RGBAImage*, all that code is here.
-
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
-				glGenerateMipmap(GL_TEXTURE_2D);
-
-				glBindSampler(textures[i]->textureId, textures[i]->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			}
-#ifdef _DEBUG
-			else ERROR("\n\tFailure in texture setup loop.", false);
-#endif
-		}
-
-		//Set up non-textures.
-		loc = glGetUniformLocation(shaderProgramHandle, "uDiffuseColor");
-		if (loc != -1) glUniform4fv(loc, 1, &diffuseColor[0]);
-#ifdef _DEBUG
-		else ERROR("\n\tFailure getting diffuse color uniform.", false);
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uAmbientIntensity");
-		if (loc != -1) glUniform4fv(loc, 1, &ambientIntensity[0]);
-#ifdef _DEBUG
-		else ERROR("\n\tFailure getting ambient intensity uniform.", false);
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularColor");
-		if (loc != -1) glUniform4fv(loc, 1, &specularColor[0]);
-#ifdef _DEBUG
-		else ERROR("\n\tFailure getting specular color uniform.", false);
-#endif 
-
-		loc = glGetUniformLocation(shaderProgramHandle, "uSpecularExponent");
-		if (loc != -1) glUniform1f(loc, specularExponent);
-#ifdef _DEBUG
-		else ERROR("\n\tFailure getting specular exponent uniform.", false);
-#endif 
-		glUseProgram(0);
-	} // ONLY will run once, no streaming updates.
+	void bindMaterial(void);
 };
 
 class TriMesh

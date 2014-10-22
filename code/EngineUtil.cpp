@@ -447,6 +447,52 @@ Material::Material(void)
 	emissiveColor = glm::vec4(0.2, 0.0, 0.0, 0.0);
 }
 
+void Material::bindMaterial(void) {
+
+	if (shaderProgramHandle == NULL_HANDLE) {
+		ERROR("Cannot get uniforms because the shader program handle is not set.", false);
+		return;
+	}
+
+	glUseProgram(shaderProgramHandle);
+
+	GLint loc;
+
+	//Set up textures.
+	for (int i = 0; i < (int)textures.size(); ++i) {
+		loc = textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
+		if (loc != -1) {
+			glGenSamplers(1, &textures[i]->samplerId);
+			glGenTextures(1, &textures[i]->textureId);
+			glActiveTexture(GL_TEXTURE0 + i); //Set active texture unit in GL context.
+			glUniform1i(textures[i]->id, i); //Set the handle to the texture being used?
+			if (textures[i]->name == "uSpecularExponentTex") glBindTexture(GL_TEXTURE_1D, textures[i]->textureId); //This tex is 1D.
+			else glBindTexture(GL_TEXTURE_2D, textures[i]->textureId); //Associate texture and GL target.
+			//Important find--glBindTexture() needs to be called BEFORE glTexImage2D(), to not generate a bunch of stupid empty images every time.
+			//Note that we axed the sendToOpenGL() method of RGBAImage*, all that code is here.
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textures[i]->width, textures[i]->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &textures[i]->pixels[0]);
+			glGenerateMipmap(GL_TEXTURE_2D);
+			glBindSampler(textures[i]->textureId, textures[i]->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		}
+#ifdef _DEBUG
+		else ERROR("\n\tFailure in texture setup loop.", false);
+#endif
+	}
+
+	for (int i = 0; i < (int)colors.size(); ++i) {
+		loc = colors[i]->id = glGetUniformLocation(shaderProgramHandle, colors[i]->name.c_str());
+		if (loc != -1) glUniform4fv(loc, 1, &colors[i]->val[0]);
+#ifdef _DEBUG
+		else ERROR("\n\tFailure in color setup loop.", false);
+#endif
+
+	}
+
+
+} // ONLY will run once, no streaming updates.
+
 //-------------------------------------------------------------------------//
 // TRIANGLE MESH
 //-------------------------------------------------------------------------//
@@ -681,6 +727,8 @@ void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 void Drawable::draw(Camera &camera) 
 {
 	glUseProgram(material->shaderProgramHandle);
+
+	//material->bindMaterial();
 
 	triMesh->draw();
 

@@ -174,16 +174,16 @@ void loadWorldSettings(FILE *F)
 	gMaterials["sprite"] = new Material();
 	gMaterials["sprite"]->name = "sprite";
 	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
+	gMaterials["sprite"]->bindMaterial();
 	//Lines to set up texture needed.
-	gMaterials["sprite"]->getAndInitUniforms();
 	gMaterials["yOnly"] = new Material();
 	gMaterials["yOnly"]->name = "yOnly";
 	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
-	gMaterials["yOnly"]->getAndInitUniforms();
+	gMaterials["yOnly"]->bindMaterial();
 	gMaterials["allAxes"] = new Material();
 	gMaterials["allAxes"]->name = "allAxes";
 	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
-	gMaterials["allAxes"]->getAndInitUniforms();
+	gMaterials["allAxes"]->bindMaterial();
 
 }
 
@@ -225,11 +225,16 @@ void loadMaterial(FILE *F)
 			getToken(F, fsFileName, ONE_TOKENS);
 			fragmentShader = loadShader(fsFileName.c_str(), GL_FRAGMENT_SHADER);
 		}
-		else if (token == "diffuseColor") getFloats(F, &(m->diffuseColor[0]), 4);
+		else if (token == "diffuseColor") getFloats(F, &(m->diffuseColor[0]), 4); //Backwards compatibility.
 		else if (token == "specularColor") getFloats(F, &(m->specularColor[0]), 4);
 		else if (token == "specularExponent") getFloats(F, &(m->specularExponent), 1);
 		else if (token == "ambientIntensity") getFloats(F, &(m->ambientIntensity[0]), 4);
 		else if (token == "emissiveColor") getFloats(F, &(m->emissiveColor[0]), 4);
+		else if (token == "color") {
+			m->colors.push_back(new NameIdVal<glm::vec4>());
+			getToken(F, m->colors.back()->name, ONE_TOKENS); //Store uniform name in NameIdVal<>.
+			getFloats(F, &m->colors.back()->val[0], 4);
+		}
 		else if (token == "texture") {
 			m->textures.push_back(new RGBAImage());
 			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
@@ -242,7 +247,7 @@ void loadMaterial(FILE *F)
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
 	if (materialName != "") gMaterials[materialName] = m;
 	m->name = materialName;
-	m->getAndInitUniforms(); //Very important line!
+	m->bindMaterial(); //Very important line!
 }
 
 Drawable* loadAndReturnMeshInstance(FILE *F)
@@ -304,7 +309,7 @@ Drawable* loadAndReturnSprite(FILE *F)
 			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
 			m->textures.back()->loadPNG(texFileName);
 			m->textures.back()->sendToOpenGL();
-			m->getAndInitUniforms();
+			m->bindMaterial();
 		}
 		else if (token == "animDir") getInts(F, &sprite->animDir, 1);
 		else if (token == "animRate") getFloats(F, &sprite->animRate, 1);
@@ -356,7 +361,7 @@ Drawable* loadAndReturnBillboard(FILE *F)
 			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
 			m->textures.back()->loadPNG(texFileName);
 			m->textures.back()->sendToOpenGL();
-			m->getAndInitUniforms();
+			m->bindMaterial();
 		}
 	}
 
