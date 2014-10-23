@@ -174,6 +174,7 @@ public:
 class Camera
 {
 public:
+	string name;
 	//Eye is camera position, the lookFrom.
 	//Center is the camera lookAt target.
 	glm::vec3 eye, center, vup;
@@ -353,7 +354,10 @@ public:
 // SCRIPT
 //-------------------------------------------------------------------------//
 
-class Script {};
+class Script {
+public:
+	string name;
+};
 
 //-------------------------------------------------------------------------//
 // SCENE GRAPH NODE

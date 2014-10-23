@@ -32,11 +32,12 @@ map<string, Material*> gMaterials;
 map<string, SceneGraphNode*> gNodes;
 map<string, Script*> gScripts;
 vector<Camera*> gCameras;
-vector<char*> gSceneFileNames;
+vector<const char*> gSceneFileNames;
 
 //These will not change until their keys are pressed.
 unsigned int gActiveCamera = 0; //Ctrl.
 unsigned int gActiveScene = 0; //Shift.
+string gActiveSceneName; //Used in console, updated in loadScene().
 bool gShouldSwapScene = false;
 bool gShowPerFrameDebug = false; //F1.
 
@@ -48,15 +49,7 @@ const float step = 0.1f;
 const float crawl = 0.01f;
 double curr_xx, prev_xx, curr_yy, prev_yy;
 
-//-------------------------------------------------------------------------//
-// Console for Commands
-//-------------------------------------------------------------------------//
-void useConsole() 
-{
-	string input;
-	cin >> input;
-	cout << input;
-}
+void useConsole(void);
 
 //-------------------------------------------------------------------------//
 // Callback for Keyboard Input
@@ -422,6 +415,7 @@ Camera* loadCamera(FILE *F)
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
+		else if (token == "name") getToken(F, gCameras.back()->name, ONE_TOKENS);
 		else if (token == "eye") getFloats(F, &(gCameras.back()->eye[0]), 3);
 		else if (token == "center") getFloats(F, &(gCameras.back()->center[0]), 3);
 		else if (token == "vup") getFloats(F, &(gCameras.back()->vup[0]), 3);
@@ -528,10 +522,10 @@ void loadScene(const char *sceneFile)
 	gActiveCamera = 0;
 
 	//Add the path used for the scene to the EngineUtil's PATH variable.
-	string sceneFileName = sceneFile;
-	int separatorIndex = sceneFileName.find_last_of("/");
-	if (separatorIndex < 0)	separatorIndex = sceneFileName.find_last_of("\\");
-	if (separatorIndex > 0)	addToPath(sceneFileName.substr(0, separatorIndex + 1));
+	gActiveSceneName = sceneFile;
+	int separatorIndex = gActiveSceneName.find_last_of("/");
+	if (separatorIndex < 0)	separatorIndex = gActiveSceneName.find_last_of("\\");
+	if (separatorIndex > 0)	addToPath(gActiveSceneName.substr(0, separatorIndex + 1));
 
 	FILE *F = openFileForReading(sceneFile);
 	string token;
@@ -608,7 +602,8 @@ void update(void)
 void render(void)
 {
 	// clear color and depth buffer
-	glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
+	if (gBuildMode) glClearColor(0, 0, 0, 1.0f);
+	else glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (gShowPerFrameDebug) {
@@ -622,6 +617,342 @@ void render(void)
 
 	// draw scene
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->draw(*gCameras[gActiveCamera]);
+}
+
+//-------------------------------------------------------------------------//
+// Console for Commands
+//-------------------------------------------------------------------------//
+
+void useConsole(void)
+{
+	string input;
+	bool flag = false; //For generic use below to avoid some code repetition's bloating.
+	cout << "\n================================================================================";
+	cout << "\t\t\t\tEntering Console";
+	cout << "\n================================================================================\n";
+	cout << "Commands: \n\tshh, noshh \n\tq, quit, exit \n\tb, build \n\tcreate \n\tload \n\tsave \n\tprint\n";
+	do {
+		flag = false;
+		getline(cin, input);
+		//cout << input << endl;
+		
+		//Single-token commands first.
+		if (input == "b" || input == "build") gBuildMode = true;
+		else if (input == "shh") soundEngine->setAllSoundsPaused(true);
+		else if (input == "noshh") soundEngine->setAllSoundsPaused(false);
+		else if (input == "q" || input == "quit" || input == "exit") break;
+		else { //Multiple-token commands.
+			istringstream iss(input); //HAVE to 
+			while (iss) {
+				string token;
+				iss >> token; //Same as iss.operator>>(token).
+				if (token == "load")
+				{
+					iss >> token;
+					if (token == "load") 
+					{
+						cout << "\tValid Commands:\n";
+						cout << "\tload [-a] nameOfFileToLoad.scene\n";
+						break;
+					}
+					if (token == "-a") //Append to the gSceneFileNames container.
+					{
+						cout << "\tAppending to gSceneFileNames, updating gActiveScene...\n";
+						flag = true; //Not pushing it back here because it may be a bad name.
+						gActiveScene = gSceneFileNames.size() - 1;
+						iss >> token; //Necessary to catch the token up to the non -a case.
+					}
+					FILE * f = openFileForReading(token);
+					if (f == nullptr) cout << "\tFile not found. Please ensure the name is correct and try again.\n";
+					else //Valid file on first try, so load it.
+					{
+						glfwTerminate();
+						if (flag) gSceneFileNames.push_back(token.c_str());
+						loadScene(token.c_str());
+						return;
+					}
+					break;
+				}
+				else if (token == "save")
+				{
+					iss >> token;
+					if (token == "save")
+					{
+						cout << "\tValid Commands:\n";
+						cout << "\tsave [-q] fileNameToSaveTo.scene\n";
+						cout << "\tReplace scene name by the keyword \'this\' to save active scene.\n";
+						break;
+					}
+					if (token == "-q")
+					{
+						cout << "\tWill quit console after save completes.\n";
+						flag = true;
+						iss >> token; //catch up with non -q case
+					}
+					else if (token == "this")
+					{
+						token = gActiveSceneName;
+					}
+					//Call toString() of all appropriate objects over all global state containers.
+					//fprintf("format as in SDL %s", objOfInterestInRightOrder.toString());
+					if (flag) return;
+				}
+				else if (token == "create")
+				{
+					iss >> token;
+					if (token == "scene") 
+					{
+						iss >> token;
+						if (token == "scene")
+						{
+							cout << "\tPlease follow the create scene command by a scene file name.\n";
+							cout << "\tFile content will be overwritten; a file will be created if none exists.\n";
+							break;
+						}
+						FILE * g = fopen(token.c_str(), "w+");
+						if (g == nullptr) break; //Shouldn't really happen as we create file on 404.
+
+						cout << "\tPlease supply world settings:\n";
+						fprintf(g, "worldSettings ");
+
+						cout << "\tWindow Title (no \"\"): ";
+						getline(cin, token);
+						fprintf(g, "windowTitle \"%s\" {\n", token.c_str());
+
+						cout << "\tWidth: ";
+						getline(cin, token);
+						fprintf(g, "\twidth %s\n", token.c_str());
+
+						cout << "\tHeight: ";
+						getline(cin, token);
+						fprintf(g, "\theight %s\n", token.c_str());
+
+						cout << "\tSamples per Pixel: ";
+						getline(cin, token);
+						fprintf(g, "\tspp %s\n", token.c_str());
+
+						cout << "\tBackground Color [r g b]: ";
+						getline(cin, token);
+						fprintf(g, "\tbackgroundColor %s\n", token.c_str());
+
+						cout << "\tBackground Music (no \"\"): ";
+						getline(cin, token);
+						fprintf(g, "\tbackgroundMusic \"%s\"\n", token.c_str());
+
+						cout << "\tPrinting end of worldSettings.\n";
+						fprintf(g, "}\n\n");
+
+						cout << "\tAdding default camera.\n";
+						fprintf(g, "\
+						camera name \"camera1\" {\n\
+							eye[0 6 10]\n\
+							center[0 0 1]\n\
+							vup[0 1 0]\n\
+							fovy 0.5\n\
+							znear 0.1\n\
+							zfar 1000\n\
+						}\n");
+
+						fclose(g);
+						cout << "\tScene creation successful.\n";
+						cout << "\tPlease now use \'load\' to open the scene and begin adding to it.\n";
+					}
+					else if (token == "camera")
+					{
+						gCameras.push_back(new Camera());
+
+						cout << "\tName (no \"\"): ";
+						getline(cin, gCameras.back()->name);
+
+						cout << "\tEye - Camera Position x: ";
+						cin >> gCameras.back()->eye.x;
+						cout << "\tEye - Camera Position y: ";
+						cin >> gCameras.back()->eye.y;
+						cout << "\tEye - Camera Position z: ";
+						cin >> gCameras.back()->eye.z;
+
+						cout << "\tCenter - Camera Direction x: ";
+						cin >> gCameras.back()->center.x;
+						cout << "\tCenter - Camera Direction y: ";
+						cin >> gCameras.back()->center.y;
+						cout << "\tCenter - Camera Direction z: ";
+						cin >> gCameras.back()->center.z;
+
+						cout << "\tVup - Camera Vertical Tilt Direction x: ";
+						cin >> gCameras.back()->vup.x;
+						cout << "\tVup - Camera Vertical Tilt Direction y: ";
+						cin >> gCameras.back()->vup.y;
+						cout << "\tVup - Camera Vertical Tilt Direction z: ";
+						cin >> gCameras.back()->vup.z;
+
+						cout << "\tFoVy - 0.5 Norm: ";
+						cin >> gCameras.back()->fovy;
+
+						cout << "\tzNear - 0.1 Norm: ";
+						cin >> gCameras.back()->znear;
+
+						cout << "\tzFar - 1000 Norm: ";
+						cin >> gCameras.back()->zfar;
+
+						cout << "\tCamera successfully initialized and added to gCameras.\n";
+					}
+					else if (token == "light")
+					{
+						if (gNumLights + 1 > MAX_LIGHTS)
+						{
+							cout << "\tNo more lights can be added to the scene, please \'delete\' one first.";
+							break;
+						}
+						gLights[gNumLights] = Light();
+						gLights[gNumLights].isOn = 1;
+
+						cout << "\tLight Type {Point, Directional, Spot, Ambient, Head, Rim}: ";
+						while (true) {
+							cin >> token;
+							if (token == "Point") { gLights[gNumLights].type = Light::LIGHT_TYPE::POINT; break; }
+							else if (token == "Directional") { gLights[gNumLights].type = Light::LIGHT_TYPE::DIRECTIONAL; break; }
+							else if (token == "Spot") { gLights[gNumLights].type = Light::LIGHT_TYPE::SPOT_LIGHT; break; }
+							else if (token == "Ambient") { gLights[gNumLights].type = Light::LIGHT_TYPE::AMBIENT; break; }
+							else if (token == "Head") { gLights[gNumLights].type = Light::LIGHT_TYPE::HEAD_LIGHT; break; }
+							else if (token == "Rim") { gLights[gNumLights].type = Light::LIGHT_TYPE::RIM_LIGHT; break; }
+							else cout << "\tPlease enter a valid light type: ";
+						}
+
+						cout << "\tLight isOn (0/1): ";
+						cin >> gLights[gNumLights].isOn;
+
+						if (gLights[gNumLights].type == Light::LIGHT_TYPE::SPOT_LIGHT)
+						{
+							cout << "\tLight attenLightCutoffCosine Alpha: ";
+							cin >> gLights[gNumLights].alpha;
+
+							cout << "\tLight attenLightCutoffCosine Theta: ";
+							cin >> gLights[gNumLights].theta;
+						}
+						else gLights[gNumLights].alpha = gLights[gNumLights].theta = 0;
+
+						cout << "\tLight Intensity/Color.r: ";
+						cin >> gLights[gNumLights].intensity.r;
+						cout << "\tLight Intensity/Color.g: ";
+						cin >> gLights[gNumLights].intensity.g;
+						cout << "\tLight Intensity/Color.b: ";
+						cin >> gLights[gNumLights].intensity.b;
+
+						if (!(gLights[gNumLights].type == Light::LIGHT_TYPE::DIRECTIONAL || gLights[gNumLights].type == Light::LIGHT_TYPE::AMBIENT))
+						{
+							cout << "\tLight Position.x: ";
+							cin >> gLights[gNumLights].position.x;
+							cout << "\tLight Position.y: ";
+							cin >> gLights[gNumLights].position.y;
+							cout << "\tLight Position.z: ";
+							cin >> gLights[gNumLights].position.z;
+
+							cout << "\tAttenuation: 1/(x*dd + y*d + z*1)\n";
+							cout << "\tQuadratic Attenuation.x: ";
+							cin >> gLights[gNumLights].attenuation.x;
+							cout << "\tLinear Attenuation.y: ";
+							cin >> gLights[gNumLights].attenuation.y;
+							cout << "\tConstant Attenuation.z: ";
+							cin >> gLights[gNumLights].attenuation.z;
+						}
+						else gLights[gNumLights].position = gLights[gNumLights].attenuation = glm::vec4(0);
+
+
+						if (!(gLights[gNumLights].type == Light::LIGHT_TYPE::POINT || gLights[gNumLights].type == Light::LIGHT_TYPE::AMBIENT))
+						{
+							cout << "\tLight Direction.x: ";
+							cin >> gLights[gNumLights].direction.x;
+							cout << "\tLight Direction.y: ";
+							cin >> gLights[gNumLights].direction.y;
+							cout << "\tLight Direction.z: ";
+							cin >> gLights[gNumLights].direction.z;
+						}
+						else gLights[gNumLights].direction = glm::vec4(0);
+
+						++gNumLights;
+
+						cout << "\tLight successfully initialized and added to gLights.\n";
+					}
+					else if (token == "material")
+					{
+
+					}
+					else if (token == "mesh")
+					{
+						iss >> token; //Treated as meshName in loadMesh().
+						if (token == "mesh")
+						{
+							cout << "\tValid Commands:\n";
+							cout << "\tcreate mesh nameForMesh [nameOfFileToLoad.ply]\n";
+							cout << "\tOmitting the last argument asks if filename is nameForMesh.ply.\n";
+							break;
+						}
+						string fileName;
+						gMeshes[token] = new TriMesh();
+						gMeshes[token]->setName(token);
+						iss >> fileName;
+						if (fileName == token)
+						{
+							cout << "\tFound no filename supplied.\n";
+							cout << "\tAssume the filename should be " << token << ".ply (Y/N): ";
+							cin >> fileName;
+							if (fileName == "N") { cout << "\tReturning to top level console.\n"; break; }
+						}
+						if (!gMeshes[token]->readFromPly(token + ".ply", false)) { cout << "\tReadFromPly() returned false, erasing mesh and returning to top-level console.\n"; gMeshes.erase(token); break; }
+						if (!gMeshes[token]->sendToOpenGL()) { cout << "\tSendToOpenGL() returned false, erasing mesh and returning to top-level console.\n"; gMeshes.erase(token);  break; }
+						cout << "\tMesh object successfully created and added to gMeshes.\n";
+					}
+					else if (token == "node")
+					{
+
+					}
+					else if (token == "script") cout << "\tNot supported at runtime as it requires recompilation.\n";
+					else
+					{
+						cout << "\tValid Commands:\n";
+						cout << "\tcreate camera\n\tcreate light\n\tcreate material\n\tcreate mesh\n\tcreate node\n\tcreate scene\n\tcreate script\n";
+					}
+					cout << "\tRemember to follow up with \'save\' to write to the file for non-scenes.\n";
+				}
+				else if (token == "print")
+				{
+					iss >> token;
+					if (token == "cameras") for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) cout << '\t' << (*it)->name << endl;
+					else if (token == "lights")
+					{
+						for (int i = 0; i < gNumLights; ++i) 
+						{
+							switch (gLights[i].type) 
+							{
+							case Light::LIGHT_TYPE::POINT: cout << "\tpoint light\n"; break;
+							case Light::LIGHT_TYPE::DIRECTIONAL: cout << "\tdirectional light\n"; break;
+							case Light::LIGHT_TYPE::SPOT_LIGHT: cout << "\tspot light\n"; break;
+							case Light::LIGHT_TYPE::AMBIENT: cout << "\tambient light\n"; break;
+							case Light::LIGHT_TYPE::HEAD_LIGHT: cout << "\thead light\n"; break;
+							case Light::LIGHT_TYPE::RIM_LIGHT: cout << "\trim light\n"; break;
+							}
+						}
+					}
+					else if (token == "materials") for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << it->second->name << endl;
+					else if (token == "meshes") for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << it->second->name << endl;
+					else if (token == "nodes") for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) cout << '\t' << it->second->name << endl;
+					else if (token == "scenes") for (auto it = gSceneFileNames.cbegin(); it != gSceneFileNames.cend(); ++it) cout << '\t' << *it << endl;
+					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->name << endl;
+					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n";
+				}
+				else if (token == "help")
+				{
+					iss >> token;
+					if (token == "create");
+					else if (token == "load");
+					else if (token == "save");
+				}
+			}
+		}
+	} while (true);
+	cout << "\n================================================================================";
+	cout << "\t\t\t\tExiting Console";
+	cout << "\n================================================================================\n";
 }
 
 //-------------------------------------------------------------------------//
@@ -650,7 +981,9 @@ int main(int numArgs, char **args)
 	//if (music) music->setMinDistance(5.0f); // distance of full volume
 
 	// Load all curernt args into gSceneFileNames to swap about later. i=1 for start because args[0] is just the program name.
-	for (int i = 1; i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
+	for (int i = (gBuildMode ? 2 : 1); i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
+
+	if (gSceneFileNames.size() == 0) ERROR("Failed to supply any scene file names, exiting engine.");
 
 	// Load first scene.
 	loadScene(gSceneFileNames[0]);
