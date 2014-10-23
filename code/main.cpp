@@ -217,7 +217,6 @@ void loadMaterial(FILE *F)
 	string token, materialName("");
 	GLuint vertexShader = NULL_HANDLE;
 	GLuint fragmentShader = NULL_HANDLE;
-	GLuint shaderProgram = NULL_HANDLE;
 
 	Material *m = new Material();
 
@@ -225,20 +224,13 @@ void loadMaterial(FILE *F)
 		if (token == "}") break;
 		else if (token == "name") getToken(F, materialName, ONE_TOKENS);
 		else if (token == "vertexShader") {
-			string vsFileName;
-			getToken(F, vsFileName, ONE_TOKENS);
-			vertexShader = loadShader(vsFileName.c_str(), GL_VERTEX_SHADER);
+			getToken(F, m->vertexShaderName, ONE_TOKENS);
+			vertexShader = loadShader(m->vertexShaderName.c_str(), GL_VERTEX_SHADER);
 		}
 		else if (token == "fragmentShader") {
-			string fsFileName;
-			getToken(F, fsFileName, ONE_TOKENS);
-			fragmentShader = loadShader(fsFileName.c_str(), GL_FRAGMENT_SHADER);
+			getToken(F, m->fragmentShaderName, ONE_TOKENS);
+			fragmentShader = loadShader(m->fragmentShaderName.c_str(), GL_FRAGMENT_SHADER);
 		}
-		else if (token == "diffuseColor") getFloats(F, &(m->diffuseColor[0]), 4); //Backwards compatibility.
-		else if (token == "specularColor") getFloats(F, &(m->specularColor[0]), 4);
-		else if (token == "specularExponent") getFloats(F, &(m->specularExponent), 1);
-		else if (token == "ambientIntensity") getFloats(F, &(m->ambientIntensity[0]), 4);
-		else if (token == "emissiveColor") getFloats(F, &(m->emissiveColor[0]), 4);
 		else if (token == "color") {
 			m->colors.push_back(new NameIdVal<glm::vec4>());
 			getToken(F, m->colors.back()->name, ONE_TOKENS); //Store uniform name in NameIdVal<>.
@@ -705,7 +697,8 @@ void useConsole(void)
 						iss >> token;
 						if (token == "scene")
 						{
-							cout << "\tPlease follow the create scene command by a scene file name.\n";
+							cout << "\tValid Commands:\n";
+							cout << "\tcreate scene sceneNameToCreate.scene\n";
 							cout << "\tFile content will be overwritten; a file will be created if none exists.\n";
 							break;
 						}
@@ -875,7 +868,47 @@ void useConsole(void)
 					}
 					else if (token == "material")
 					{
+						iss >> token;
+						if (token == "material")
+						{
+							cout << "\tValid Commands:\n";
+							cout << "\tcreate material materialName\n";
+							break;
+						}
+						gMaterials[token] = new Material();
+						gMaterials[token]->name = token;
 
+						cout << "\tVertex Shader Filename.vs: ";
+						cin >> gMaterials[token]->vertexShaderName;
+						cout << "\tFragment Shader Filename.fs: ";
+						cin >> gMaterials[token]->fragmentShaderName;
+						gMaterials[token]->setShaderProgram(createShaderProgram(
+							loadShader(gMaterials[token]->vertexShaderName, GL_VERTEX_SHADER), 
+							loadShader(gMaterials[token]->fragmentShaderName, GL_FRAGMENT_SHADER)
+						)); //Return to modify this to take a container of shaders.
+
+						string tmp;
+						do {
+							cout << "\tSubmit color (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+							gMaterials[token]->colors.push_back(new NameIdVal<glm::vec4>());
+							cout << "\tColor's uniformName: "; cin >> gMaterials[token]->colors.back()->name;
+							cout << "\tR-value: "; cin >> gMaterials[token]->colors.back()->val.r;
+							cout << "\tG-value: "; cin >> gMaterials[token]->colors.back()->val.g;
+							cout << "\tB-value: "; cin >> gMaterials[token]->colors.back()->val.b;
+							cout << "\tA-value: "; cin >> gMaterials[token]->colors.back()->val.a;
+						} while (true);
+
+						do {
+							cout << "\tSubmit texture (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+							gMaterials[token]->textures.push_back(new RGBAImage());
+							cout << "\tSampler uniformName: "; cin >> gMaterials[token]->textures.back()->name;
+							cout << "\tTexture fileName.png: "; cin >> gMaterials[token]->textures.back()->fileName;
+							gMaterials[token]->textures.back()->loadPNG(gMaterials[token]->textures.back()->fileName);
+							gMaterials[token]->textures.back()->sendToOpenGL();
+						} while (true);
+
+						gMaterials[token]->bindMaterial(); //Very important line!
+						cout << "\tMaterial successfully created and added to gMaterials.\n";
 					}
 					else if (token == "mesh")
 					{

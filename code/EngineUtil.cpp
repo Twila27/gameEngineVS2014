@@ -380,6 +380,7 @@ RGBAImage::~RGBAImage()
 
 bool RGBAImage::loadPNG(const string &fileName, bool doFlipY)
 {
+	this->fileName = fileName;
 	string fullName;
 	getFullFileName(fileName, fullName);
 	unsigned error = lodepng::decode(pixels, width, height, fullName.c_str());
@@ -436,29 +437,18 @@ void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipM
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 }
 
-
-Material::Material(void)
-{
-	shaderProgramHandle = NULL_HANDLE;
-	diffuseColor = glm::vec4(1, 1, 1, 1);
-	specularColor = glm::vec4(0.2, 0.2, 0.2, 0.2);
-	specularExponent = 1.0;
-	ambientIntensity = glm::vec4(0.2, 0.2, 0.2, 0.2);
-	emissiveColor = glm::vec4(0.2, 0.0, 0.0, 0.0);
-}
-
 void Material::bindMaterial(void) {
 
-	if (shaderProgramHandle == NULL_HANDLE) {
+	if (shaderProgramHandles[activeShaderProgram] == NULL_HANDLE) {
 		ERROR("Cannot get uniforms because the shader program handle is not set.", false);
 		return;
 	}
 
-	glUseProgram(shaderProgramHandle);
+	glUseProgram(shaderProgramHandles[activeShaderProgram]);
 
 	//Set up textures.
 	for (int i = 0; i < (int)textures.size(); ++i) {
-		textures[i]->id = glGetUniformLocation(shaderProgramHandle, textures[i]->name.c_str()); //The problem is this name is incorrect!
+		textures[i]->id = glGetUniformLocation(shaderProgramHandles[activeShaderProgram], textures[i]->name.c_str()); //The problem is this name is incorrect!
 		if (textures[i]->id != -1) {
 			//glGenSamplers(1, &textures[i]->samplerId);
 			//glGenTextures(1, &textures[i]->textureId);
@@ -480,7 +470,7 @@ void Material::bindMaterial(void) {
 	}
 
 	for (int i = 0; i < (int)colors.size(); ++i) {
-		colors[i]->id = glGetUniformLocation(shaderProgramHandle, colors[i]->name.c_str());
+		colors[i]->id = glGetUniformLocation(shaderProgramHandles[activeShaderProgram], colors[i]->name.c_str());
 		if (colors[i]->id != -1) glUniform4fv(colors[i]->id, 1, &colors[i]->val[0]);
 #ifdef _DEBUG
 		else ERROR("\n\tFailure in color setup loop.", false);
@@ -724,7 +714,7 @@ void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 
 void Drawable::draw(Camera &camera) 
 {
-	glUseProgram(material->shaderProgramHandle);
+	glUseProgram(material->shaderProgramHandles[material->activeShaderProgram]);
 
 	material->bindMaterial();
 
@@ -816,42 +806,42 @@ void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
 
-	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandle);
+	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram]);
 
 	GLint loc;
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectWorldM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uObjectWorldM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.transform));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldM.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectWorldInverseM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uObjectWorldInverseM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(T.invTransform));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectWorldInverseM.", false);
 #endif
 
 	glm::mat4x4 objectWorldViewPerspect = camera.worldViewProject * T.transform;
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uObjectPerpsectM");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uObjectPerpsectM");
 	if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(objectWorldViewPerspect));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uObjectPerpsectM.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uViewDirection");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uViewDirection");
 	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.center));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uViewPosition.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uViewPosition");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uViewPosition");
 	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(camera.eye));
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandle, "uSpriteFrame");
+	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uSpriteFrame");
 	if (loc != -1) 
 		glUniform4fv(loc, 1, glm::value_ptr(((Sprite*)LODstack[activeLOD])->frames[((Sprite*)LODstack[activeLOD])->activeFrame])); //Need to move into sprite::prepareToDraw...
 #ifdef _DEBUG

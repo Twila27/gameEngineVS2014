@@ -116,7 +116,7 @@ class RGBAImage
 {
 public:
 	GLuint id; //Uniform loc.
-	string name;
+	string name, fileName; //Name denotes sampler uniformName.
 	vector<unsigned char> pixels;
 	unsigned int width, height;
 	GLuint textureId;
@@ -254,25 +254,20 @@ void initLightBuffer(void);
 class Material
 {
 public:
-	string name;
-	GLuint shaderProgramHandle;
-	glm::vec4 diffuseColor; //If we add setters, do we get tinting? Might need to make uniforms streaming then...
-	glm::vec4 specularColor;
-	float specularExponent; //Shiny factor.
-	glm::vec4 ambientIntensity;
-	glm::vec4 emissiveColor;
+	string name, vertexShaderName, fragmentShaderName;
+	int activeShaderProgram;
+	vector<GLuint> shaderProgramHandles;
 	vector<RGBAImage*> textures;
-	vector<NameIdVal<glm::vec4>* > colors; //!
+	vector<NameIdVal<glm::vec4>* > colors;
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
-	Material(void);
 	~Material(void)
 	{
 		for (auto it = textures.begin(); it != textures.end(); ++it) delete *it;
-		glDeleteProgram(shaderProgramHandle);
+		for (auto it = shaderProgramHandles.begin(); it != shaderProgramHandles.end(); ++it) glDeleteProgram(*it);
 	}
-	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandle = shaderProgram; }
+	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandles.push_back(shaderProgram); }
 	void bindMaterial(void);
 };
 
