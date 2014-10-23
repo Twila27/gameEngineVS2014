@@ -35,15 +35,28 @@ vector<Camera*> gCameras;
 vector<char*> gSceneFileNames;
 
 //These will not change until their keys are pressed.
-unsigned int gActiveCamera = 0;
-unsigned int gActiveScene = 0;
+unsigned int gActiveCamera = 0; //Ctrl.
+unsigned int gActiveScene = 0; //Shift.
 bool gShouldSwapScene = false;
-bool gShowPerFrameDebug = false;
+bool gShowPerFrameDebug = false; //F1.
+
+//For dev controls.
+bool gBuildMode = false;
 
 //For controlling keyboard movement and rotation speeds.
 const float step = 0.1f;
 const float crawl = 0.01f;
 double curr_xx, prev_xx, curr_yy, prev_yy;
+
+//-------------------------------------------------------------------------//
+// Console for Commands
+//-------------------------------------------------------------------------//
+void useConsole() 
+{
+	string input;
+	cin >> input;
+	cout << input;
+}
 
 //-------------------------------------------------------------------------//
 // Callback for Keyboard Input
@@ -93,6 +106,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			break;
 		case GLFW_KEY_F1:
 			gShowPerFrameDebug = !gShowPerFrameDebug;
+			break;
+		case GLFW_KEY_GRAVE_ACCENT:
+			useConsole();
 			break;
 		}
 	}
@@ -619,6 +635,8 @@ int main(int numArgs, char **args)
 		cout << "Proper Input: gameEngine.exe sceneFile.scene [sceneFile2.scene ...]" << endl;
 		exit(0);
 	}
+
+	if (args[1] == "-b") gBuildMode = true;
 
 	// Start sound engine
 	soundEngine = createIrrKlangDevice();
