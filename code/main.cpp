@@ -615,6 +615,40 @@ void render(void)
 // Console for Commands
 //-------------------------------------------------------------------------//
 
+void consoleLoadCamera()
+{
+	cout << "\tEye - Camera Position x: ";
+	cin >> gCameras.back()->eye.x;
+	cout << "\tEye - Camera Position y: ";
+	cin >> gCameras.back()->eye.y;
+	cout << "\tEye - Camera Position z: ";
+	cin >> gCameras.back()->eye.z;
+
+	cout << "\tCenter - Camera Direction x: ";
+	cin >> gCameras.back()->center.x;
+	cout << "\tCenter - Camera Direction y: ";
+	cin >> gCameras.back()->center.y;
+	cout << "\tCenter - Camera Direction z: ";
+	cin >> gCameras.back()->center.z;
+
+	cout << "\tVup - Camera Vertical Tilt Direction x: ";
+	cin >> gCameras.back()->vup.x;
+	cout << "\tVup - Camera Vertical Tilt Direction y: ";
+	cin >> gCameras.back()->vup.y;
+	cout << "\tVup - Camera Vertical Tilt Direction z: ";
+	cin >> gCameras.back()->vup.z;
+
+	cout << "\tFoVy - 0.5 Norm: ";
+	cin >> gCameras.back()->fovy;
+
+	cout << "\tzNear - 0.1 Norm: ";
+	cin >> gCameras.back()->znear;
+
+	cout << "\tzFar - 1000 Norm: ";
+	cin >> gCameras.back()->zfar;
+
+	cout << "\tCamera successfully initialized and added to gCameras.\n";
+} //Relies on the camera having been just added, see in useConsole's create camera command code.
 void useConsole(void)
 {
 	string input;
@@ -634,7 +668,7 @@ void useConsole(void)
 		else if (input == "noshh") soundEngine->setAllSoundsPaused(false);
 		else if (input == "q" || input == "quit" || input == "exit") break;
 		else { //Multiple-token commands.
-			istringstream iss(input); //HAVE to 
+			istringstream iss(input); //HAVE to instantiate every iteration or it breaks.
 			while (iss) {
 				string token;
 				iss >> token; //Same as iss.operator>>(token).
@@ -652,7 +686,7 @@ void useConsole(void)
 						cout << "\tAppending to gSceneFileNames, updating gActiveScene...\n";
 						flag = true; //Not pushing it back here because it may be a bad name.
 						gActiveScene = gSceneFileNames.size() - 1;
-						iss >> token; //Necessary to catch the token up to the non -a case.
+						iss >> token; //Catch token up to the non -a case.
 					}
 					FILE * f = openFileForReading(token);
 					if (f == nullptr) cout << "\tFile not found. Please ensure the name is correct and try again.\n";
@@ -679,7 +713,7 @@ void useConsole(void)
 					{
 						cout << "\tWill quit console after save completes.\n";
 						flag = true;
-						iss >> token; //catch up with non -q case
+						iss >> token; //Catch token up to the non -q case.
 					}
 					else if (token == "this")
 					{
@@ -697,9 +731,8 @@ void useConsole(void)
 						iss >> token;
 						if (token == "scene")
 						{
-							cout << "\tValid Commands:\n";
-							cout << "\tcreate scene sceneNameToCreate.scene\n";
-							cout << "\tFile content will be overwritten; a file will be created if none exists.\n";
+							cout << "\tName of scene (no \"\", no .scene): ";
+							getline(cin, token);
 							break;
 						}
 						FILE * g = fopen(token.c_str(), "w+");
@@ -753,41 +786,14 @@ void useConsole(void)
 					else if (token == "camera")
 					{
 						gCameras.push_back(new Camera());
-
-						cout << "\tName (no \"\"): ";
-						getline(cin, gCameras.back()->name);
-
-						cout << "\tEye - Camera Position x: ";
-						cin >> gCameras.back()->eye.x;
-						cout << "\tEye - Camera Position y: ";
-						cin >> gCameras.back()->eye.y;
-						cout << "\tEye - Camera Position z: ";
-						cin >> gCameras.back()->eye.z;
-
-						cout << "\tCenter - Camera Direction x: ";
-						cin >> gCameras.back()->center.x;
-						cout << "\tCenter - Camera Direction y: ";
-						cin >> gCameras.back()->center.y;
-						cout << "\tCenter - Camera Direction z: ";
-						cin >> gCameras.back()->center.z;
-
-						cout << "\tVup - Camera Vertical Tilt Direction x: ";
-						cin >> gCameras.back()->vup.x;
-						cout << "\tVup - Camera Vertical Tilt Direction y: ";
-						cin >> gCameras.back()->vup.y;
-						cout << "\tVup - Camera Vertical Tilt Direction z: ";
-						cin >> gCameras.back()->vup.z;
-
-						cout << "\tFoVy - 0.5 Norm: ";
-						cin >> gCameras.back()->fovy;
-
-						cout << "\tzNear - 0.1 Norm: ";
-						cin >> gCameras.back()->znear;
-
-						cout << "\tzFar - 1000 Norm: ";
-						cin >> gCameras.back()->zfar;
-
-						cout << "\tCamera successfully initialized and added to gCameras.\n";
+						iss >> token;
+						if (token == "camera") //No name argument afterward.
+						{
+							cout << "\tName (no \"\"): ";
+							getline(cin, gCameras.back()->name);
+						}
+						else gCameras.back()->name = token;
+						consoleLoadCamera();
 					}
 					else if (token == "light")
 					{
@@ -889,7 +895,7 @@ void useConsole(void)
 
 						string tmp;
 						do {
-							cout << "\tSubmit color (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+							cout << "\tAdd color uniform (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
 							gMaterials[token]->colors.push_back(new NameIdVal<glm::vec4>());
 							cout << "\tColor's uniformName: "; cin >> gMaterials[token]->colors.back()->name;
 							cout << "\tR-value: "; cin >> gMaterials[token]->colors.back()->val.r;
@@ -899,7 +905,7 @@ void useConsole(void)
 						} while (true);
 
 						do {
-							cout << "\tSubmit texture (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+							cout << "\tAdd texture uniform (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
 							gMaterials[token]->textures.push_back(new RGBAImage());
 							cout << "\tSampler uniformName: "; cin >> gMaterials[token]->textures.back()->name;
 							cout << "\tTexture fileName.png: "; cin >> gMaterials[token]->textures.back()->fileName;
@@ -937,7 +943,94 @@ void useConsole(void)
 					}
 					else if (token == "node")
 					{
+						iss >> token;
+						if (token == "node")
+						{
+							cout << "\tValid Commands:\n";
+							cout << "\tcreate node nameForNode\n";
+							break;
 
+
+						}
+						/*
+						gNodes[token] = new SceneGraphNode();
+						float renderThreshold = -1.0f;
+						gNodes[token]->name = token;
+
+						//1. Loading LODstack.
+
+						cout << "\tMaximum render distance - Norm 10.0: ";
+						cin >> renderThreshold;
+
+						cout << "\tTranslation.x: "; cin >> gNodes[token]->T.translation[0];
+						cout << "\tTranslation.y: "; cin >> gNodes[token]->T.translation[1];
+						cout << "\tTranslation.z: "; cin >> gNodes[token]->T.translation[2];
+
+						//cout << "Rotation: "; cin >> gNodes[token]->T.rotation; //?
+
+						cout << "\tScale.x: "; cin >> gNodes[token]->T.scale[0];
+						cout << "\tScale.y: "; cin >> gNodes[token]->T.scale[1];
+						cout << "\tScale.z: "; cin >> gNodes[token]->T.scale[2];
+
+						string tmp;
+						do {
+							cout << "\tAdd camera (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+							consoleLoadCamera();
+							gNodes[token]->cameras.push_back(gCameras.back());
+						} while (true);
+
+
+							else if (token == "meshInstance") {
+								n->LODstack.push_back(loadAndReturnMeshInstance(F));
+								n->LODstack.back()->type = Drawable::TRIMESHINSTANCE;
+							}
+							else if (token == "sprite") {
+								n->LODstack.push_back(loadAndReturnSprite(F));
+								n->LODstack.back()->type = Drawable::SPRITE;
+							}
+							else if (token == "billboard") {
+								n->LODstack.push_back(loadAndReturnBillboard(F));
+								n->LODstack.back()->type = Drawable::BILLBOARD;
+							}
+							else if (token == "node") {
+								n->children.push_back(loadAndReturnNode(F));
+								n->children.back()->parent = n;
+							}
+							else if (token == "script") {
+								string scriptName;
+								getToken(F, scriptName, ONE_TOKENS);
+								if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
+								else ERROR("Unable to locate gScripts[" + scriptName + "], is the name right in .scene?", false);
+							}
+							else if (token == "sound") {
+								string fileName, fullFileName;
+								getToken(F, fileName, ONE_TOKENS);
+								getFullFileName(fileName, fullFileName);
+								n->sound = soundEngine->play2D(fullFileName.c_str(), false, false, true);
+								n->sound->stop();
+								//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
+							}
+						}
+
+						//Auto-generate the other class members that the parser isn't supplying.
+
+						//First, the switching distances. 
+						//Given n items on the LODstack, we consider [0, n->renderThreshold].
+						//We subdivide this interval by the amount of objects in the LOD stack.
+						if (renderThreshold == -1.0f) {
+							ERROR("Need to specify maxRenderDist in node{}!", false);
+							renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
+						}
+						for (float div = 1.0f; div <= (int)n->LODstack.size(); ++div)
+							n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
+						//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
+						//The node isn't rendered when the distance to the camera center is past its threshold.
+
+						//Second, configure cameras to be oriented to the node.
+						n->setTranslation(n->T.translation); //Also handles camera updates.
+
+						return n;
+						*/
 					}
 					else if (token == "script") cout << "\tNot supported at runtime as it requires recompilation.\n";
 					else
@@ -973,10 +1066,20 @@ void useConsole(void)
 					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n";
 				}
-				else if (token == "help")
+				else if (token == "help" || token == "man")
 				{
 					iss >> token;
-					if (token == "create");
+					cout << "\tValid Commands:\n";
+					if (token == "create")
+					{
+						iss >> token;
+						if (token == "create");
+						else if (token == "scene") 
+						{
+							cout << "\tcreate scene sceneNameToCreate.scene\n";
+							cout << "\tFile content will be overwritten; a file will be created if none exists.\n";
+						}
+					}
 					else if (token == "load");
 					else if (token == "save");
 				}

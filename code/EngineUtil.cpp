@@ -689,27 +689,15 @@ void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material)
 
 void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 {
+	T.rotation = glm::quat();
 	glm::vec3 billToCamDir = glm::normalize(camera.eye - T.translation);
-	//printVec(billToCamDir);
-	//Need to create a new quaternion and multiply T.rotation by it.
+	float angleToRotateY = -atan2(billToCamDir.x, billToCamDir.z); //Rotate by the angle atan2(billToCam's x-component, billToCam's z-component) around y-axis (so we don't include it as a term here).
 	if (material.name == "allAxes") {
-		//Find phi, the amount we need to rotate around the x-axis.
-		glm::mat4x4 R = glm::axisAngleMatrix(glm::vec3(1,0,0), -asin(billToCamDir.y)); //Rotate by the phi angle -asin(...) around x-axis.
-		T.rotation = glm::quat(R) * T.rotation; //+=? //asin() preserves argument sign.
-		//cout << "phi: " << T.rotation.x << endl;
+		float angleToRotateX = asin(billToCamDir.y);
+		T.rotation = glm::quat(sin(angleToRotateX / 2), glm::vec3(cos(angleToRotateX / 2), 0, 0));
+		angleToRotateY *= -1;
 	}
-	//Now we find theta, the amount we need to rotate around the y-axis.
-	glm::mat4x4 R = glm::axisAngleMatrix(glm::vec3(0,1,0), atan2(billToCamDir.x, billToCamDir.z)); //Rotate by the theta angle atan2(...) around y-axis.
-	T.rotation = glm::quat(R) * T.rotation;
-	//cout << "the: " << T.rotation.y << endl;
-
-	/*if (material.name == "allAxes") {
-		T.rotation.x = -asin(billToCamDir.y); //+=? //asin() preserves argument sign.
-		//cout << "phi: " << T.rotation.x << endl;
-	}
-	T.rotation.y = atan2(billToCamDir.x, billToCamDir.z); //atan2() uses all 4 quadrants with range [0, 2pi] or [-pi,pi] while atan() is [-pi/2, pi/2].
-	//cout << "the: " << T.rotation.y << endl;
-	*/
+	T.rotation *= glm::quat(sin(angleToRotateY/2), glm::vec3(0, cos(angleToRotateY/2), 0)); //This magic corresponds to the quaternion scalar-part formula q = [A sin(theta/2)  cos(theta/2)] from our exam review.
 }
 
 void Drawable::draw(Camera &camera) 

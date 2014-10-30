@@ -162,7 +162,7 @@ public:
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
 		if (shouldRotate) transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
-		else transform = glm::translate(parentTrans) * glm::scale(parentScale) * Mtrans * Mrot * Mscale; // child will rot indep of parent
+		else transform = glm::translate(parentTrans) * glm::scale(parentScale) * Mtrans * Mrot * Mscale; // child will rot indep of parent -- but it seems like parentTrans afflicts billboard/sprite rotations! /!\
 		invTransform = glm::inverse(transform);
 	}
 };
