@@ -683,7 +683,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 	cin >> renderThreshold;
 	do {
 		cout << "\tAdd sprite, billboard, or mesh instance (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
-		cout << "\tTip: the first object you add should be those the camera will see when farthest away.\n";
+		cout << "\tTip: first addition is seen when farthest away.\n";
 		cout << "\tPlease type s, b, mi for which drawable to add: "; cin >> tmp;
 		if (tmp == "s") {
 			Sprite *sprite = new Sprite();
@@ -701,8 +701,8 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 			m->textures.push_back(new RGBAImage());
 			cout << "\tTip: Assigning uDiffuseTex as the image's corresponding sampler2D uniform name by default.\n";
 			m->textures.back()->name = "uDiffuseTex"; //Store uniform name in RGBAImage.
-			cout << "\tPlease enter the filename of the spritesheet.png located among the current paths below: ";
-			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
+			cout << "\tPlease enter the filename of the spritesheet.png located among the current paths below: \n";
+			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << '\t' << *it << endl;
 			cin >> tmp;
 			m->textures.back()->loadPNG(tmp);
 			m->textures.back()->sendToOpenGL();
@@ -755,8 +755,8 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 			m->textures.push_back(new RGBAImage());
 			cout << "\tTip: Assigning uDiffuseTex as the image's corresponding sampler2D uniform name by default.\n";
 			m->textures.back()->name = "uDiffuseTex"; //Store uniform name in RGBAImage.
-			cout << "\tPlease enter the filename of the image.png located among the current paths below: ";
-			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
+			cout << "\tPlease enter the filename of the image.png located among the current paths below: \n";
+			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << '\t' << *it << endl;
 			cin >> tmp;
 			m->textures.back()->loadPNG(tmp);
 			m->textures.back()->sendToOpenGL();
@@ -769,15 +769,15 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 			TriMeshInstance *instance = new TriMeshInstance();
 
 			//Assign material.
-			cout << "\tPlease supply the name of a material from those in gMaterials, listed below: ";
-			for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << it->second->name << endl;
+			cout << "\tPlease choose a material from those below: \n";
+			for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << '\t' << it->second->name << endl;
 			cin >> tmp;
 			if (gMaterials.count(tmp) > 0)	instance->setMaterial(gMaterials[tmp]);
 			else ERROR("\tUnable to locate gMaterials[" + tmp + "], is the name right in .scene?", false);
 
 			//Assign mesh.
-			cout << "\tPlease supply the name of a mesh from those in gMeshes, listed below: ";
-			for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << it->second->name << endl;
+			cout << "\tPlease choose a mesh from those below: \n";
+			for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << '\t' << it->second->name << endl;
 			cin >> tmp;
 			if (gMeshes.count(tmp) > 0)	instance->setMesh(gMeshes[tmp]);
 			else ERROR("\tUnable to locate gMeshes[" + tmp + "], is the name right in .scene?", false);

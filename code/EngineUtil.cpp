@@ -770,7 +770,7 @@ void SceneGraphNode::update(Camera &camera)
 	//Update children.
 	for (int i = 0; i < (int)children.size(); ++i) {
 		children[i]->update(camera); //Won't refresh self thanks to above line.
-		if (children[i]->LODstack[children[i]->activeLOD]->type != Drawable::TRIMESHINSTANCE)
+		if (children[i]->activeLOD != -1 && children[i]->LODstack[children[i]->activeLOD]->type != Drawable::TRIMESHINSTANCE)
 			children[i]->T.refreshTransform(T.transform, T.translation, T.scale, false);
 		else children[i]->T.refreshTransform(T.transform);
 	}
@@ -778,25 +778,24 @@ void SceneGraphNode::update(Camera &camera)
 	//Update LOD stack.
 	//Reverse iter due to the back element in switchingDistances being the smallest threshold.
 	//i.e. The first element is the one viewed when furthest away (but not beyond the object's renderThreshold--switchingDistances[0]).
-	if (LODstack.size() > 1) {
-		int currLOD = 0;
-		glm::vec3 camDistVec = T.translation - camera.eye;
-		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
-		if (camDistSqr > switchingDistances[0]*switchingDistances[0]) activeLOD = LODstack.size() - 1; //Outside all thresholds.
-		else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
-			if (camDistSqr <= (*it)*(*it)) {
-				activeLOD = currLOD; 
-				break;
-			}
-			currLOD++;
+	int currLOD = 0;
+	glm::vec3 camDistVec = T.translation - camera.eye;
+	float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
+	if (camDistSqr > switchingDistances[0]*switchingDistances[0]) activeLOD = -1; //Outside all thresholds.
+	else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
+		if (camDistSqr <= (*it)*(*it)) {
+			activeLOD = currLOD; 
+			break;
 		}
+		currLOD++;
 	}
 	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
-	LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material); 
+	if (activeLOD != -1) LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material); 
 }
 void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
+	if (activeLOD == -1) return; //Do not render objects beyond their renderThreshold of switchingDistances[0].
 
 	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram]);
 
