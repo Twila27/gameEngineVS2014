@@ -85,6 +85,8 @@ void printMat(const glm::mat4x4 &m);
 // FILE READING
 //-------------------------------------------------------------------------//
 
+const vector<string>& getPATH();
+
 void addToPath(const string &p);
 
 void removeFromPath(const string &p);
@@ -302,7 +304,7 @@ public:
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
 	void setMaterial(Material *material_) { material = material_; }
 	virtual void draw(Camera& camera); //Not pure anymore, handles general mesh render.
-	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) {} //Handle subclass-specific preparation.
+	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) {} //Handle subclass-specific preparation.
 };
 
 //-------------------------------------------------------------------------//
@@ -315,8 +317,8 @@ public:
 	int frameWidth, frameHeight;
 	int sheetWidth, sheetHeight; //Yanked from material->textures[0].
 	int amtRows, amtCols;
-	int animDir;
-	float animRate, currAccumulatedTime;
+	int animDir; //1 or -1.
+	float animRate, currAccumulatedTime; //Specify animRate in FPS, roughly.
 	int activeFrame, activeRow;
 	//Assign alpha (using discard() GLSL function) and texture frame in fragment shader.
 	//May enable back-face culling.
@@ -327,14 +329,14 @@ public:
 		activeFrame = activeRow = frameWidth = frameHeight = sheetWidth = sheetHeight = currAccumulatedTime = 0;
 	}
 	void switchAnim(int newRow) { activeRow = newRow; } //Just ensure animations have an enum.
-	virtual void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
+	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) override;
 	//virtual void draw(Camera& camera) override;
 };
 
 class Billboard : public Sprite {
 public:
 	//void draw(Camera& camera) override;
-	void prepareToDraw(Camera& camera, Transform& T, Material& material) override;
+	void prepareToDraw(const Camera& camera, Transform& T, Material& material) override;
 };
 
 // should extend EngineObject
@@ -369,7 +371,7 @@ public:
 	SceneGraphNode * parent;
 	vector<Script*> scripts;
 	Transform T;
-	ISound * sound;
+	vector<ISound*> sounds;
 	void setScale(const glm::vec3 &s) { T.scale = s; }
 	void setRotation(const glm::quat &r) { T.rotation = r; } //for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->rotateGlobal(r); }
 	void addTranslation(const glm::vec3 &t) { T.translation += t; for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->translateLocal(t); }

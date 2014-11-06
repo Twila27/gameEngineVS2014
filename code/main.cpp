@@ -254,9 +254,6 @@ void loadMaterial(FILE *F)
 Drawable* loadAndReturnMeshInstance(FILE *F)
 {
 	string token;
-	GLuint vertexShader = NULL_HANDLE;
-	GLuint fragmentShader = NULL_HANDLE;
-	GLuint shaderProgram = NULL_HANDLE;
 
 	TriMeshInstance *instance = new TriMeshInstance();
 
@@ -470,8 +467,8 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
-			n->sound = soundEngine->play2D(fullFileName.c_str(), false, false, true);
-			n->sound->stop();
+			n->sounds.push_back(soundEngine->play2D(fullFileName.c_str(), false, false, true));
+			n->sounds.back()->stop();
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
 		}
 	}
@@ -580,10 +577,11 @@ void update(void)
 	//Play the sound of an object within the specified number range below, if it isn't yet played.
 	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) {
-		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;		
-		if (it->second->sound != nullptr &&	!soundEngine->isCurrentlyPlaying(it->second->sound->getSoundSource())
+		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;
+		if (it->second->sounds.size() > 0 
+			&& !soundEngine->isCurrentlyPlaying(it->second->sounds.back()->getSoundSource()) 
 			&& camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z <= 10.0)
-			soundEngine->play3D(it->second->sound->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
+				soundEngine->play3D(it->second->sounds.back()->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
 	}
 }
 
@@ -649,6 +647,187 @@ void consoleLoadCamera()
 
 	cout << "\tCamera successfully initialized and added to gCameras.\n";
 } //Relies on the camera having been just added, see in useConsole's create camera command code.
+SceneGraphNode* consoleLoadNode(const string& name = "") { 
+	string nodeName(name), tmp("");
+
+	//0. Get node name if none exists, e.g. for child nodes set below.
+	while (nodeName == "") { cout << "\tName of Node: "; cin >> nodeName; }
+	gNodes[nodeName] = new SceneGraphNode();
+	gNodes[nodeName]->name = nodeName;
+
+	//1. Initializing node Transform.
+	cout << "\tTranslation.x: "; cin >> gNodes[nodeName]->T.translation[0];
+	cout << "\tTranslation.y: "; cin >> gNodes[nodeName]->T.translation[1];
+	cout << "\tTranslation.z: "; cin >> gNodes[nodeName]->T.translation[2];
+
+	float pitch, yaw, roll;
+	cout << "\tRotation.x: "; cin >> pitch;
+	cout << "\tRotation.y: "; cin >> yaw;
+	cout << "\tRotation.z: "; cin >> roll;
+	gNodes[nodeName]->T.rotation = glm::quat(glm::vec3(pitch, yaw, roll));
+
+	cout << "\tScale.x: "; cin >> gNodes[nodeName]->T.scale[0];
+	cout << "\tScale.y: "; cin >> gNodes[nodeName]->T.scale[1];
+	cout << "\tScale.z: "; cin >> gNodes[nodeName]->T.scale[2];
+
+	//2. Add cameras.
+	do {
+		cout << "\tAdd camera (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+		consoleLoadCamera();
+		gNodes[nodeName]->cameras.push_back(gCameras.back());
+	} while (true);
+
+	//3. Add Drawables to LODstack.
+	float renderThreshold = -1.0f;
+	cout << "\tMaximum render distance - Norm 10.0: ";
+	cin >> renderThreshold;
+	do {
+		cout << "\tAdd sprite, billboard, or mesh instance (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+		cout << "\tTip: the first object you add should be those the camera will see when farthest away.\n";
+		cout << "\tPlease type s, b, mi for which drawable to add: "; cin >> tmp;
+		if (tmp == "s") {
+			Sprite *sprite = new Sprite();
+
+			//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
+			if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
+			else ERROR("\tUnable to locate gMeshes[\"sprite\"], verify its addition in loadWorldSettings()?", false);
+
+			//Assign flat card mesh.
+			if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
+			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+
+			//Assign image or sprite sheet.
+			Material* m = sprite->getMaterial();
+			m->textures.push_back(new RGBAImage());
+			cout << "\tTip: Assigning uDiffuseTex as the image's corresponding sampler2D uniform name by default.\n";
+			m->textures.back()->name = "uDiffuseTex"; //Store uniform name in RGBAImage.
+			cout << "\tPlease enter the filename of the spritesheet.png located among the current paths below: ";
+			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
+			cin >> tmp;
+			m->textures.back()->loadPNG(tmp);
+			m->textures.back()->sendToOpenGL();
+			m->bindMaterial();
+
+			cout << "\tAnimation Direction (1 or -1) -- Norm 1: "; cin >> sprite->animDir;
+			cout << "\tAnimation FPS Rate -- Norm 1: "; cin >> sprite->animRate;
+			cout << "\tFrame Width in Pixels: "; cin >> sprite->frameWidth;
+			cout << "\tFrame Height in Pixels: "; cin >> sprite->frameHeight;
+
+			if (sprite->getMaterial()->textures.size() < 1) ERROR("Sprite lacks an image!");
+			sprite->sheetWidth = sprite->getMaterial()->textures[0]->width;
+			sprite->sheetHeight = sprite->getMaterial()->textures[0]->height;
+			sprite->amtRows = sprite->sheetHeight / sprite->frameHeight;
+			sprite->amtCols = sprite->sheetWidth / sprite->frameWidth;
+
+			//Sheet properties can be accessed via textures[0]; frames assigned as below:
+			for (int r = 0; r < sprite->amtRows; ++r)
+			for (int c = 0; c < sprite->amtCols; ++c)
+				sprite->frames.push_back({
+				round((c*sprite->sheetWidth) / sprite->amtCols) / (float)sprite->sheetWidth, //u1
+				round((r*sprite->sheetHeight) / sprite->amtRows) / (float)sprite->sheetHeight, //v1
+				sprite->frameWidth / (float)sprite->sheetWidth, //u2 = currently the normalized location of the top-right, needs to be a normalized absolute width amount
+				sprite->frameHeight / (float)sprite->sheetHeight //v2
+			});
+
+			gNodes[nodeName]->LODstack.push_back(sprite);
+			gNodes[nodeName]->LODstack.back()->type = Drawable::SPRITE;
+		}
+		else if (tmp == "b") {
+			Billboard *billboard = new Billboard();
+
+			//Assign flat card mesh.
+			if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
+			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+
+			//Assign material.
+			cout << "Does the billboard rotate only vertically on the y-axis (Y/N)? "; cin >> tmp;
+			if (tmp == "N" || tmp == "n") {
+				if (gMaterials.count("allAxes") > 0) billboard->setMaterial(gMaterials["allAxes"]);
+				else ERROR("Unable to locate gMaterials[\"allAxes\"], is the name right in .scene?", false);
+			}
+			else {
+				if (gMaterials.count("yOnly") > 0) billboard->setMaterial(gMaterials["yOnly"]);
+				else ERROR("Unable to locate gMaterials[\"yOnly\"], is the name right in .scene?", false);
+			}
+
+			//Assign image.
+			Material* m = billboard->getMaterial();
+			m->textures.push_back(new RGBAImage());
+			cout << "\tTip: Assigning uDiffuseTex as the image's corresponding sampler2D uniform name by default.\n";
+			m->textures.back()->name = "uDiffuseTex"; //Store uniform name in RGBAImage.
+			cout << "\tPlease enter the filename of the image.png located among the current paths below: ";
+			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
+			cin >> tmp;
+			m->textures.back()->loadPNG(tmp);
+			m->textures.back()->sendToOpenGL();
+			m->bindMaterial();
+
+			gNodes[nodeName]->LODstack.push_back(billboard);
+			gNodes[nodeName]->LODstack.back()->type = Drawable::BILLBOARD;
+		}
+		else if (tmp == "mi") {
+			TriMeshInstance *instance = new TriMeshInstance();
+
+			//Assign material.
+			cout << "\tPlease supply the name of a material from those in gMaterials, listed below: ";
+			for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << it->second->name << endl;
+			cin >> tmp;
+			if (gMaterials.count(tmp) > 0)	instance->setMaterial(gMaterials[tmp]);
+			else ERROR("\tUnable to locate gMaterials[" + tmp + "], is the name right in .scene?", false);
+
+			//Assign mesh.
+			cout << "\tPlease supply the name of a mesh from those in gMeshes, listed below: ";
+			for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << it->second->name << endl;
+			cin >> tmp;
+			if (gMeshes.count(tmp) > 0)	instance->setMesh(gMeshes[tmp]);
+			else ERROR("\tUnable to locate gMeshes[" + tmp + "], is the name right in .scene?", false);
+
+			gNodes[nodeName]->LODstack.push_back(instance);
+			gNodes[nodeName]->LODstack.back()->type = Drawable::TRIMESHINSTANCE;
+		}
+		gNodes[nodeName]->cameras.push_back(gCameras.back());
+	} while (true);
+
+	//4. Add node(s) as child(ren).
+	do {
+		cout << "\tAdd child node (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+		gNodes[nodeName]->children.push_back(consoleLoadNode());
+	} while (true);
+
+
+	//5. Add script(s).
+	do {
+		cout << "\tAdd script (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+		cout << "\tAdding scripts is currently not supported.\n";
+		//gNodes[nodeName]->scripts.push_back(scriptName?);
+	} while (true);
+
+	//6. Add sound(s).
+	do {
+		cout << "\tAdd sound (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
+		cout << "\tPlease enter the name of the sound, e.g. bell.wav: "; cin >> tmp;
+		gNodes[nodeName]->sounds.push_back(soundEngine->play2D(tmp.c_str(), false, false, true));
+		gNodes[nodeName]->sounds.back()->stop();
+	} while (true);
+
+	//Auto-generate the other class members that the parser isn't supplying.
+	//First, the switching distances. 
+	//Given n items on the LODstack, we consider [0, n->renderThreshold].
+	//We subdivide this interval by the amount of objects in the LOD stack.
+	if (renderThreshold == -1.0f) {
+		ERROR("Need to specify maxRenderDist in node{}!", false);
+		renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
+	}
+	for (float div = 1.0f; div <= (int)gNodes[nodeName]->LODstack.size(); ++div)
+		gNodes[nodeName]->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
+	//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
+	//The node isn't rendered when the distance to the camera center is past its threshold.
+
+	//Second, configure cameras to be oriented to the node.
+	gNodes[nodeName]->setTranslation(gNodes[nodeName]->T.translation); //Also handles camera updates.
+
+	return gNodes[nodeName];
+}
 void useConsole(void)
 {
 	string input;
@@ -944,93 +1123,12 @@ void useConsole(void)
 					else if (token == "node")
 					{
 						iss >> token;
-						if (token == "node")
+						if (token == "node") //No name argument afterward.
 						{
-							cout << "\tValid Commands:\n";
-							cout << "\tcreate node nameForNode\n";
-							break;
-
-
+							cout << "\tName (no \"\"): ";
+							cin >> token;
 						}
-						/*
-						gNodes[token] = new SceneGraphNode();
-						float renderThreshold = -1.0f;
-						gNodes[token]->name = token;
-
-						//1. Loading LODstack.
-
-						cout << "\tMaximum render distance - Norm 10.0: ";
-						cin >> renderThreshold;
-
-						cout << "\tTranslation.x: "; cin >> gNodes[token]->T.translation[0];
-						cout << "\tTranslation.y: "; cin >> gNodes[token]->T.translation[1];
-						cout << "\tTranslation.z: "; cin >> gNodes[token]->T.translation[2];
-
-						//cout << "Rotation: "; cin >> gNodes[token]->T.rotation; //?
-
-						cout << "\tScale.x: "; cin >> gNodes[token]->T.scale[0];
-						cout << "\tScale.y: "; cin >> gNodes[token]->T.scale[1];
-						cout << "\tScale.z: "; cin >> gNodes[token]->T.scale[2];
-
-						string tmp;
-						do {
-							cout << "\tAdd camera (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
-							consoleLoadCamera();
-							gNodes[token]->cameras.push_back(gCameras.back());
-						} while (true);
-
-
-							else if (token == "meshInstance") {
-								n->LODstack.push_back(loadAndReturnMeshInstance(F));
-								n->LODstack.back()->type = Drawable::TRIMESHINSTANCE;
-							}
-							else if (token == "sprite") {
-								n->LODstack.push_back(loadAndReturnSprite(F));
-								n->LODstack.back()->type = Drawable::SPRITE;
-							}
-							else if (token == "billboard") {
-								n->LODstack.push_back(loadAndReturnBillboard(F));
-								n->LODstack.back()->type = Drawable::BILLBOARD;
-							}
-							else if (token == "node") {
-								n->children.push_back(loadAndReturnNode(F));
-								n->children.back()->parent = n;
-							}
-							else if (token == "script") {
-								string scriptName;
-								getToken(F, scriptName, ONE_TOKENS);
-								if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
-								else ERROR("Unable to locate gScripts[" + scriptName + "], is the name right in .scene?", false);
-							}
-							else if (token == "sound") {
-								string fileName, fullFileName;
-								getToken(F, fileName, ONE_TOKENS);
-								getFullFileName(fileName, fullFileName);
-								n->sound = soundEngine->play2D(fullFileName.c_str(), false, false, true);
-								n->sound->stop();
-								//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
-							}
-						}
-
-						//Auto-generate the other class members that the parser isn't supplying.
-
-						//First, the switching distances. 
-						//Given n items on the LODstack, we consider [0, n->renderThreshold].
-						//We subdivide this interval by the amount of objects in the LOD stack.
-						if (renderThreshold == -1.0f) {
-							ERROR("Need to specify maxRenderDist in node{}!", false);
-							renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
-						}
-						for (float div = 1.0f; div <= (int)n->LODstack.size(); ++div)
-							n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
-						//For now, the subdivision is binary, but it could gradually skew to one side of the interval too!
-						//The node isn't rendered when the distance to the camera center is past its threshold.
-
-						//Second, configure cameras to be oriented to the node.
-						n->setTranslation(n->T.translation); //Also handles camera updates.
-
-						return n;
-						*/
+						consoleLoadNode(token);
 					}
 					else if (token == "script") cout << "\tNot supported at runtime as it requires recompilation.\n";
 					else
@@ -1064,7 +1162,8 @@ void useConsole(void)
 					else if (token == "nodes") for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "scenes") for (auto it = gSceneFileNames.cbegin(); it != gSceneFileNames.cend(); ++it) cout << '\t' << *it << endl;
 					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->name << endl;
-					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n";
+					else if (token == "paths") for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
+					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n\tprint paths\n";
 				}
 				else if (token == "help" || token == "man")
 				{

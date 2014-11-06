@@ -183,6 +183,8 @@ void printMat(const glm::mat4x4 &m)
 
 vector<string> PATH;
 
+const vector<string>& getPATH() { return PATH; }
+
 void addToPath(const string &p)
 {
 	PATH.push_back(p);
@@ -661,7 +663,7 @@ void TriMesh::draw(void)
 
 //-------------------------------------------------------------------------//
 
-void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material) 
+void Sprite::prepareToDraw(const Camera& camera, Transform& T, Material& material) 
 {
 	//Always face the direction the camera is rotated to look at, i.e. norm(eye-center).
 	glm::vec3 vd = glm::vec3(camera.eye - camera.center);
@@ -690,9 +692,9 @@ void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material)
 	glUseProgram(0);
 }
 
-void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
+void Billboard::prepareToDraw(const Camera &camera, Transform& T, Material& material)
 {
-	glm::vec3 vd = glm::vec3((material.name == "allAxes") ? camera.eye - T.translation : camera.eye - camera.center );
+	glm::vec3 vd = glm::vec3((material.name == "allAxes") ? camera.eye - T.translation : camera.eye - camera.center);
 	vd = glm::normalize(vd);
 	float yRot = atan2f(vd.x, vd.z);
 	T.rotation = glm::quat(cos(yRot*0.5f), glm::vec3(0, 1, 0)*sin(yRot*0.5f));
@@ -757,7 +759,7 @@ SceneGraphNode::SceneGraphNode(void) {
 SceneGraphNode::~SceneGraphNode(void) {
 	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
 	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
-	if (sound != nullptr) sound->drop();
+	for (auto it = sounds.begin(); it != sounds.end(); ++it) if (*it != nullptr) (*it)->drop();
 }
 
 void SceneGraphNode::update(Camera &camera) 
@@ -775,6 +777,7 @@ void SceneGraphNode::update(Camera &camera)
 
 	//Update LOD stack.
 	//Reverse iter due to the back element in switchingDistances being the smallest threshold.
+	//i.e. The first element is the one viewed when furthest away (but not beyond the object's renderThreshold--switchingDistances[0]).
 	if (LODstack.size() > 1) {
 		int currLOD = 0;
 		glm::vec3 camDistVec = T.translation - camera.eye;
@@ -791,7 +794,6 @@ void SceneGraphNode::update(Camera &camera)
 	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
 	LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material); 
 }
-
 void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
