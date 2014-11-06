@@ -664,9 +664,12 @@ void TriMesh::draw(void)
 void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material) 
 {
 	//Always face the direction the camera is rotated to look at, i.e. norm(eye-center).
-	glm::vec3 camLookDir = glm::normalize(camera.eye - camera.center);
-	T.rotation.x = -asin(camLookDir.y);
-	T.rotation.y = atan2(camLookDir.x, camLookDir.z);
+	glm::vec3 vd = glm::vec3(camera.eye - camera.center);
+	vd = glm::normalize(vd);
+	float yRot = atan2f(vd.x, vd.z);
+	T.rotation = glm::quat(cos(yRot*0.5f), glm::vec3(0, 1, 0)*sin(yRot*0.5f));
+	float xRot = -asin(vd.y);
+	T.rotation *= glm::quat(cos(xRot*0.5f), glm::vec3(1, 0, 0)*sin(xRot*0.5f));
 
 	//Update the current frame.
 	if (currAccumulatedTime >= animRate) { //Specify animRate in FPS, roughly.
@@ -678,26 +681,25 @@ void Sprite::prepareToDraw(Camera& camera, Transform& T, Material& material)
 	else currAccumulatedTime += FIXED_DT;
 
 	//Set the new sprite frame in the shader.
-	//glUseProgram(material.shaderProgramHandle);
-	//GLint loc = glGetUniformLocation(material.shaderProgramHandle, "uSpriteFrame"); //a vec4 (x,y,z,w) <-> (x,y,w,h).
-	//if (loc != -1) glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(frames[activeFrame]));
+	glUseProgram(material.shaderProgramHandles[material.activeShaderProgram]);
+	GLint loc = glGetUniformLocation(material.shaderProgramHandles[material.activeShaderProgram], "uSpriteFrame"); //a vec4 (x,y,z,w) <-> (x,y,w,h).
+	if (loc != -1) glUniform4fv(loc, 1, glm::value_ptr(frames[activeFrame]));
 #ifdef _DEBUG
-	//else ERROR("Could not load uniform uSpriteFrame.", false);
+	else ERROR("Could not load uniform uSpriteFrame.", false);
 #endif
-	//glUseProgram(0);
+	glUseProgram(0);
 }
 
 void Billboard::prepareToDraw(Camera &camera, Transform& T, Material& material)
 {
-	T.rotation = glm::quat();
-	glm::vec3 billToCamDir = glm::normalize(camera.eye - T.translation);
-	float angleToRotateY = -atan2(billToCamDir.x, billToCamDir.z); //Rotate by the angle atan2(billToCam's x-component, billToCam's z-component) around y-axis (so we don't include it as a term here).
+	glm::vec3 vd = glm::vec3((material.name == "allAxes") ? camera.eye - T.translation : camera.eye - camera.center );
+	vd = glm::normalize(vd);
+	float yRot = atan2f(vd.x, vd.z);
+	T.rotation = glm::quat(cos(yRot*0.5f), glm::vec3(0, 1, 0)*sin(yRot*0.5f));
 	if (material.name == "allAxes") {
-		float angleToRotateX = asin(billToCamDir.y);
-		T.rotation = glm::quat(sin(angleToRotateX / 2), glm::vec3(cos(angleToRotateX / 2), 0, 0));
-		angleToRotateY *= -1;
+		float xRot = -asin(vd.y);
+		T.rotation *= glm::quat(cos(xRot*0.5f), glm::vec3(1, 0, 0)*sin(xRot*0.5f));
 	}
-	T.rotation *= glm::quat(sin(angleToRotateY/2), glm::vec3(0, cos(angleToRotateY/2), 0)); //This magic corresponds to the quaternion scalar-part formula q = [A sin(theta/2)  cos(theta/2)] from our exam review.
 }
 
 void Drawable::draw(Camera &camera) 
@@ -829,9 +831,9 @@ void SceneGraphNode::draw(Camera &camera) {
 	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
-	loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uSpriteFrame");
-	if (loc != -1) 
-		glUniform4fv(loc, 1, glm::value_ptr(((Sprite*)LODstack[activeLOD])->frames[((Sprite*)LODstack[activeLOD])->activeFrame])); //Need to move into sprite::prepareToDraw...
+	//loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uSpriteFrame");
+	//if (loc != -1) 
+	//	glUniform4fv(loc, 1, glm::value_ptr(((Sprite*)LODstack[activeLOD])->frames[((Sprite*)LODstack[activeLOD])->activeFrame])); //Need to move into sprite::prepareToDraw...
 #ifdef _DEBUG
 	//else ERROR("Could not load uniform uSpriteFrame.", false);
 #endif
