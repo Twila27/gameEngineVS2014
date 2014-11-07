@@ -175,7 +175,7 @@ struct Light {
 	glm::vec4 attenuation; //ABC for the 1/(Add + Bd + C) attenuation computation.
 	Light(void) {}
 	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
-		: type(type), position(pos), direction(dir), attenuation(atten) { }
+		: type(type), position(pos), direction(dir), attenuation(atten) {}
 	void toSDL(FILE *F);
 };
 #define MAX_LIGHTS 8
@@ -192,7 +192,7 @@ public:
 	string name, vertexShaderName, fragmentShaderName;
 	int activeShaderProgram;
 	vector<GLuint> shaderProgramHandles;
-	vector<RGBAImage*> textures;
+	vector<RGBAImage*> textures; //Holds all shader-relevant maps aside from the diffuse texture or sprite sheet contained in Drawable.
 	vector<NameIdVal<glm::vec4>* > colors;
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
@@ -232,14 +232,15 @@ public:
 	Material *material;
 	enum TYPE { TRIMESHINSTANCE, SPRITE, BILLBOARD };
 	TYPE type;
+	RGBAImage* diffuseTexture; //Used by the material, kept here to make them unique per object. May be sprite sheets.
 
 	Drawable(void) { triMesh = nullptr; material = nullptr; }
 	Material* getMaterial() { return material; }
 	void setMesh(TriMesh *mesh) { triMesh = mesh; }
 	void setMaterial(Material *material_) { material = material_; }
 	virtual void draw(Camera& camera); //Not pure anymore, handles general mesh render.
-	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) {} //Handle subclass-specific preparation.
-	virtual void toSDL(FILE *F, int tabAmt = 0) {}
+	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material); //Handle subclass-specific preparation.
+	virtual void toSDL(FILE *F, int tabAmt = 0) = 0;
 };
 
 // DRAWABLES

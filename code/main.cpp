@@ -31,10 +31,6 @@ bool gShowPerFrameDebug = false; //F1.
 //For dev controls.
 bool gBuildMode = false;
 string gGlobalTmpStr("");
-
-//For controlling keyboard movement and rotation speeds.
-double curr_xx, prev_xx, curr_yy, prev_yy;
-
 void useConsole(void);
 void saveWorldSettings(FILE *F) {
 	/* worldSettings windowTitle "Sprint 2: Simple Scene Graph (Parent-Child Transforms)" {
@@ -61,6 +57,7 @@ void saveWorldSettings(FILE *F) {
 	fprintf(F, "}\n");
 }
 
+//Keyboard input and camera manipulation.
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -121,8 +118,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 }
 float tAmt = 0.025f;
-float rAmt = 0.01f;
-float minSpeed = 0.025f;
+const float rAmt = 0.01f;
+const float minSpeed = 0.025f;
 void keyboardCameraController(Camera &cam) {
 	if (glfwGetKey(gWindow, 'A')) cam.translateLocal(glm::vec3(-tAmt, 0, 0));
 	if (glfwGetKey(gWindow, 'D')) cam.translateLocal(glm::vec3(tAmt, 0, 0));
@@ -139,6 +136,7 @@ void keyboardCameraController(Camera &cam) {
 	cam.refreshTransform((float)gWidth, (float)gHeight);
 }
 
+//Parsing.
 string ONE_TOKENS = "{}[]()<>+-*/,;";
 void loadWorldSettings(FILE *F)
 {
@@ -173,28 +171,6 @@ void loadWorldSettings(FILE *F)
 
 	// Prepare the lights.
 	initLightBuffer();
-
-	// Load the mesh for billboards and sprites into the gMeshes map.
-	gMeshes["flatCard"] = new TriMesh();
-	gMeshes["flatCard"]->setName("flatCard");
-	gMeshes["flatCard"]->readFromPly("flatCard.ply", false);
-	gMeshes["flatCard"]->sendToOpenGL();
-
-	// Load the materials for billboards and sprites into the gMaterials map. Relies on Material() for color uniform values.
-	gMaterials["sprite"] = new Material();
-	gMaterials["sprite"]->name = "sprite";
-	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
-	gMaterials["sprite"]->bindMaterial();
-	//Lines to set up texture needed.
-	gMaterials["yOnly"] = new Material();
-	gMaterials["yOnly"]->name = "yOnly";
-	gMaterials["yOnly"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
-	gMaterials["yOnly"]->bindMaterial();
-	gMaterials["allAxes"] = new Material();
-	gMaterials["allAxes"]->name = "allAxes";
-	gMaterials["allAxes"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShading.fs", GL_FRAGMENT_SHADER)));
-	gMaterials["allAxes"]->bindMaterial();
-
 }
 void loadMesh(FILE *F, bool inLibrary = false)
 {
@@ -265,13 +241,20 @@ Drawable* loadAndReturnMeshInstance(FILE *F)
 			string materialName;
 			getToken(F, materialName, ONE_TOKENS);
 			if (gMaterials.count(materialName) > 0)	instance->setMaterial(gMaterials[materialName]);
-			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], check scene and library files?", false);
 		}
 		else if (token == "mesh") {
 			string meshName;
 			getToken(F, meshName, ONE_TOKENS);
 			if (gMeshes.count(meshName) > 0) instance->setMesh(gMeshes[meshName]);
-			else ERROR("Unable to locate gMeshes[" + meshName + "], is the name right in .scene?", false);
+			else ERROR("Unable to locate gMeshes[" + meshName + "], check scene and library files?", false);
+		}
+		else if (token == "image") {
+			instance->diffuseTexture = new RGBAImage();
+			instance->diffuseTexture->name = "uDiffuseTex";
+			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
+			instance->diffuseTexture->loadPNG(texFileName);
+			instance->diffuseTexture->sendToOpenGL();
 		}
 	}
 	
@@ -285,11 +268,11 @@ Drawable* loadAndReturnSprite(FILE *F)
 
 	//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
 	if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
-	else ERROR("Unable to locate gMeshes[\"sprite\"], verify its addition in loadWorldSettings()?", false);
+	else ERROR("Unable to locate gMeshes[\"sprite\"], check scene and library files?", false);
 
 	//Assign flat card mesh.
 	if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
-	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+	else ERROR("Unable to locate gMeshes[\"flatCard\"], check scene and library files?", false);
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
@@ -297,16 +280,14 @@ Drawable* loadAndReturnSprite(FILE *F)
 		//	string materialName;
 		//	getToken(F, materialName, ONE_TOKENS);
 		//	if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
-		//	else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+		//	else ERROR("Unable to locate gMaterials[" + materialName + "], check scene and library files?", false);
 		//}
 		else if (token == "image") {
-			Material* m = sprite->getMaterial();
-			m->textures.push_back(new RGBAImage());
-			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
+			sprite->diffuseTexture = new RGBAImage();
+			sprite->diffuseTexture->name = "uDiffuseTex";
 			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
-			m->textures.back()->loadPNG(texFileName);
-			m->textures.back()->sendToOpenGL();
-			m->bindMaterial();
+			sprite->diffuseTexture->loadPNG(texFileName);
+			sprite->diffuseTexture->sendToOpenGL();
 		}
 		else if (token == "animDir") getInts(F, &sprite->animDir, 1);
 		else if (token == "animRate") getFloats(F, &sprite->animRate, 1);
@@ -314,9 +295,9 @@ Drawable* loadAndReturnSprite(FILE *F)
 		else if (token == "frameHeight") getInts(F, &sprite->frameHeight, 1);
 	}
 
-	if (sprite->getMaterial()->textures.size() < 1) ERROR("Sprite needs an image uSheetName \"img.png\"!");
-	sprite->sheetWidth = sprite->getMaterial()->textures[0]->width;
-	sprite->sheetHeight = sprite->getMaterial()->textures[0]->height;
+	if (sprite->diffuseTexture == nullptr) ERROR("Sprite needs an image uSheetName \"img.png\"!");
+	sprite->sheetWidth = sprite->diffuseTexture->width;
+	sprite->sheetHeight = sprite->diffuseTexture->height;
 	sprite->amtRows = sprite->sheetHeight / sprite->frameHeight;
 	sprite->amtCols = sprite->sheetWidth / sprite->frameWidth;
 
@@ -340,7 +321,7 @@ Drawable* loadAndReturnBillboard(FILE *F)
 
 	//Assign flat card mesh.
 	if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
-	else ERROR("Unable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+	else ERROR("Unable to locate gMeshes[\"flatCard\"], check scene and library files?", false);
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
@@ -348,16 +329,14 @@ Drawable* loadAndReturnBillboard(FILE *F)
 			string materialName;
 			getToken(F, materialName, ONE_TOKENS);
 			if (gMaterials.count(materialName) > 0)	billboard->setMaterial(gMaterials[materialName]);
-			else ERROR("Unable to locate gMaterials[" + materialName + "], is the name right in .scene?", false);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], check scene and library files?", false);
 		}
 		else if (token == "image") {
-			Material* m = billboard->getMaterial();
-			m->textures.push_back(new RGBAImage());
-			getToken(F, m->textures.back()->name, ONE_TOKENS); //Store uniform name in RGBAImage.
+			billboard->diffuseTexture = new RGBAImage();
+			billboard->diffuseTexture->name = "uDiffuseTex";
 			string texFileName;	getToken(F, texFileName, ONE_TOKENS);
-			m->textures.back()->loadPNG(texFileName);
-			m->textures.back()->sendToOpenGL();
-			m->bindMaterial();
+			billboard->diffuseTexture->loadPNG(texFileName);
+			billboard->diffuseTexture->sendToOpenGL();
 		}
 	}
 
@@ -461,7 +440,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			string scriptName;
 			getToken(F, scriptName, ONE_TOKENS);
 			if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
-			else ERROR("Unable to locate gScripts[" + scriptName + "], is the name right in .scene?", false);
+			else ERROR("Unable to locate gScripts[" + scriptName + "], check scene and library files?", false);
 		}
 		else if (token == "sound") {
 			string fileName, fullFileName;
@@ -550,6 +529,7 @@ void loadScene(const char *sceneFile)
 	fclose(F);
 }
 
+//Console and main loops.
 void consoleLoadCamera()
 {
 	cout << "\tEye - Camera Position x: ";
@@ -629,11 +609,11 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 
 			//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
 			if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
-			else ERROR("\tUnable to locate gMeshes[\"sprite\"], verify its addition in loadWorldSettings()?", false);
+			else ERROR("\tUnable to locate gMeshes[\"sprite\"], check scene and library files?", false);
 
 			//Assign flat card mesh.
 			if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
-			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], check scene and library files?", false);
 
 			//Assign image or sprite sheet.
 			Material* m = sprite->getMaterial();
@@ -676,17 +656,17 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 
 			//Assign flat card mesh.
 			if (gMeshes.count("flatCard") > 0) billboard->setMesh(gMeshes["flatCard"]);
-			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], verify its addition in loadWorldSettings()?", false);
+			else ERROR("\tUnable to locate gMeshes[\"flatCard\"], check scene and library files?", false);
 
 			//Assign material.
 			cout << "Does the billboard rotate only vertically on the y-axis (Y/N)? "; cin >> tmp;
 			if (tmp == "N" || tmp == "n") {
 				if (gMaterials.count("allAxes") > 0) billboard->setMaterial(gMaterials["allAxes"]);
-				else ERROR("Unable to locate gMaterials[\"allAxes\"], is the name right in .scene?", false);
+				else ERROR("Unable to locate gMaterials[\"allAxes\"], check scene and library files?", false);
 			}
 			else {
 				if (gMaterials.count("yOnly") > 0) billboard->setMaterial(gMaterials["yOnly"]);
-				else ERROR("Unable to locate gMaterials[\"yOnly\"], is the name right in .scene?", false);
+				else ERROR("Unable to locate gMaterials[\"yOnly\"], check scene and library files?", false);
 			}
 
 			//Assign image.
@@ -712,14 +692,14 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 			for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << '\t' << it->second->name << endl;
 			cin >> tmp;
 			if (gMaterials.count(tmp) > 0)	instance->setMaterial(gMaterials[tmp]);
-			else ERROR("\tUnable to locate gMaterials[" + tmp + "], is the name right in .scene?", false);
+			else ERROR("\tUnable to locate gMaterials[" + tmp + "], check scene and library files?", false);
 
 			//Assign mesh.
 			cout << "\tPlease choose a mesh from those below: \n";
 			for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << '\t' << it->second->name << endl;
 			cin >> tmp;
 			if (gMeshes.count(tmp) > 0)	instance->setMesh(gMeshes[tmp]);
-			else ERROR("\tUnable to locate gMeshes[" + tmp + "], is the name right in .scene?", false);
+			else ERROR("\tUnable to locate gMeshes[" + tmp + "], check scene and library files?", false);
 
 			gNodes[nodeName]->LODstack.push_back(instance);
 			gNodes[nodeName]->LODstack.back()->type = Drawable::TRIMESHINSTANCE;
@@ -971,7 +951,7 @@ void useConsole(void)
 					{
 						glfwTerminate();
 						if (flag) {
-							const char* name = token.c_str();
+							static const char* name = token.c_str();
 							gSceneFileNames.push_back(name);
 						}
 						loadScene(token.c_str());
@@ -1002,11 +982,11 @@ void useConsole(void)
 					saveWorldSettings(F); fprintf(F, "\n"); cout << "\tFinished saving worldSettings.\n";
 					for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) if (!(*it)->inNode) (*it)->toSDL(F);	
 						fprintf(F, "\n"); cout << "\tFinished saving cameras.\n";
-					for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) if (!it->second->inLibrary && it->second->name != "flatCard") it->second->toSDL(F); 
+					for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) if (!it->second->inLibrary) it->second->toSDL(F); 
 						fprintf(F, "\n"); cout << "\tFinished saving meshes.\n";
 					for (int i = 0; i < gNumLights; ++i) gLights[i].toSDL(F); 
 						fprintf(F, "\n"); cout << "\tFinished saving lights.\n";
-					for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) if (!it->second->inLibrary && it->second->name != "allAxes" && it->second->name != "yOnly" && it->second->name != "sprite") it->second->toSDL(F); 
+					for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) if (!it->second->inLibrary) it->second->toSDL(F); 
 						fprintf(F, "\n"); cout << "\tFinished saving materials.\n";
 					for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) if (it->second->parent == nullptr) it->second->toSDL(F); fprintf(F, "\n"); cout << "\tFinished saving nodes.\n";
 					fclose(F);

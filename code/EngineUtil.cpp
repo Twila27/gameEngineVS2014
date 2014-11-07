@@ -657,6 +657,8 @@ void TriMesh::draw(void)
 
 void Sprite::prepareToDraw(const Camera& camera, Transform& T, Material& material) 
 {
+	Drawable::prepareToDraw(camera, T, material);
+
 	//Always face the direction the camera is rotated to look at, i.e. norm(eye-center).
 	glm::vec3 vd = glm::vec3(camera.eye - camera.center);
 	vd = glm::normalize(vd);
@@ -685,6 +687,8 @@ void Sprite::prepareToDraw(const Camera& camera, Transform& T, Material& materia
 }
 void Billboard::prepareToDraw(const Camera &camera, Transform& T, Material& material)
 {
+	Drawable::prepareToDraw(camera, T, material);
+
 	glm::vec3 vd = glm::vec3((material.name == "allAxes") ? camera.eye - T.translation : camera.eye - camera.center);
 	vd = glm::normalize(vd);
 	float yRot = atan2f(vd.x, vd.z);
@@ -693,6 +697,23 @@ void Billboard::prepareToDraw(const Camera &camera, Transform& T, Material& mate
 		float xRot = -asin(vd.y);
 		T.rotation *= glm::quat(cos(xRot*0.5f), glm::vec3(1, 0, 0)*sin(xRot*0.5f));
 	}
+}
+
+void Drawable::prepareToDraw(const Camera &camera, Transform& T, Material& material) {
+	if (diffuseTexture == nullptr) return;
+	//Handle setting the diffuse texture uniform, if there is one. Assumes uniform name is a sampler2D named uDiffuseTex.
+	glUseProgram(material.shaderProgramHandles[material.activeShaderProgram]);
+	diffuseTexture->id = glGetUniformLocation(material.shaderProgramHandles[material.activeShaderProgram], "uDiffuseTex");
+	if (diffuseTexture->id != -1) {
+		glActiveTexture(GL_TEXTURE0 + 0); //Set active texture unit in GL context.
+		glUniform1i(diffuseTexture->id, 0); //Set the handle to the texture being used? Matches the # added to GL_TEXTURE0 above.
+		glBindTexture(GL_TEXTURE_2D, diffuseTexture->textureId); //Associate texture and GL target. 
+		glBindSampler(diffuseTexture->textureId, diffuseTexture->samplerId); //Associate texture and sampler. Already done in sendToOpenGL().
+	}
+#ifdef _DEBUG
+	else ERROR("Could not load uniform uDiffuseTex.", false);
+#endif
+	glUseProgram(0);
 }
 void Drawable::draw(Camera &camera) 
 {
@@ -724,6 +745,7 @@ void initLightBuffer() {
 SceneGraphNode::SceneGraphNode(void) {
 	T.scale = glm::vec3(1, 1, 1);
 	T.translation = glm::vec3(0, 0, 0);
+	T.rotation = glm::quat(T.translation); //Lookup over an allocation.
 	activeLOD = 0;
 }
 SceneGraphNode::~SceneGraphNode(void) {
@@ -759,12 +781,12 @@ void SceneGraphNode::update(Camera &camera)
 		currLOD++;
 	}
 	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
-	if (activeLOD != -1) LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material); 
 }
 void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
 	if (activeLOD == -1) return; //Do not render objects beyond their renderThreshold of switchingDistances[0].
+	LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material);
 
 	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram]);
 
@@ -801,14 +823,6 @@ void SceneGraphNode::draw(Camera &camera) {
 	//else ERROR("Could not load uniform uViewDirection.", false);
 #endif
 
-	//loc = glGetUniformLocation(LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram], "uSpriteFrame");
-	//if (loc != -1) 
-	//	glUniform4fv(loc, 1, glm::value_ptr(((Sprite*)LODstack[activeLOD])->frames[((Sprite*)LODstack[activeLOD])->activeFrame])); //Need to move into sprite::prepareToDraw...
-#ifdef _DEBUG
-	//else ERROR("Could not load uniform uSpriteFrame.", false);
-#endif
-
-	//For now, hardcoded to render the frontmost LOD stack element.
 	LODstack[activeLOD]->draw(camera);
 }
 
