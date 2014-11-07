@@ -1,12 +1,3 @@
-
-//-------------------------------------------------------------------------//
-// EngineUtil.h
-// Some utility stuff - file reading and such
-//
-// David Cline
-// 8/23/2014
-//-------------------------------------------------------------------------//
-
 // Prevent visual studio warnings
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -82,36 +73,22 @@ inline void printQuat(const glm::quat &q) { printf("[%1.3f %1.3f %1.3f %1.3f]\n"
 void printMat(const glm::mat4x4 &m);
 
 //-------------------------------------------------------------------------//
-// FILE READING
-//-------------------------------------------------------------------------//
 
 const vector<string>& getPATH();
-
 void addToPath(const string &p);
-
 void removeFromPath(const string &p);
-
 bool getFullFileName(const string &fileName, string &fullName);
 FILE *openFileForReading(const string &fileName);
-
 bool getToken(FILE *f, string &token, const string &oneCharTokens);
 int getFloats(FILE *f, float *a, int num);
 int getInts(FILE *f, int *a, int num);
-
 bool loadFileAsString(const string &fileName, string &buffer);
-
 void replaceIncludes(string &src, string &dest, const string &directive,
 	string &alreadyIncluded, bool onlyOnce);
-
-//-------------------------------------------------------------------------//
-// SOUND
-//-------------------------------------------------------------------------//
 
 void initSoundEngine(void);
 ISound *loadSound();
 
-//-------------------------------------------------------------------------//
-// IMAGE
 //-------------------------------------------------------------------------//
 
 class RGBAImage
@@ -143,10 +120,6 @@ public:
 	}
 };
 
-//-------------------------------------------------------------------------//
-// TRANSFORM
-//-------------------------------------------------------------------------//
-
 class Transform
 {
 public:
@@ -169,63 +142,26 @@ public:
 	}
 };
 
-//-------------------------------------------------------------------------//
-// Camera
-//-------------------------------------------------------------------------//
-
 class Camera
 {
 public:
 	string name;
-	//Eye is camera position, the lookFrom.
-	//Center is the camera lookAt target.
-	glm::vec3 eye, center, vup;
+	bool inNode;
 
+	glm::vec3 eye, center, vup; //lookFrom position, lookAt target direction, vup.
 	float fovy; // vertical field of view
 	float znear, zfar; // near and far clip planes
 
 	glm::mat4x4 worldViewProject;
 
-	void refreshTransform(float screenWidth, float screenHeight)
-	{
-		glm::mat4x4 worldView = glm::lookAt(eye, center, vup);
-		glm::mat4x4 project = glm::perspective((float)fovy,
-			(float)(screenWidth / screenHeight), (float)znear, (float)zfar);
-		worldViewProject = project * worldView;
-	}
+	void refreshTransform(float screenWidth, float screenHeight);
 	void translateGlobal(const glm::vec3 &t) { eye += t; center += t; }
-	void translateLocal(const glm::vec3 &t) {
-		glm::vec3 zz = glm::normalize(eye - center);
-		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
-		glm::vec3 yy = glm::cross(zz, xx);
-		glm::vec3 tt = t.x*xx + t.y*yy + t.z*zz;
-		eye += tt; center += tt;
-	}
-	void rotateGlobal(const glm::vec3 &axis, const float angle) {
-		glm::mat4x4 R = glm::axisAngleMatrix(axis, angle); //Rotation transform matrix.
-		glm::vec4 zz = glm::vec4(eye - center, 0); //Local z axis == obj.pos - obj.dir, unnormalized?
-		glm::vec4 Rzz = R*zz; //Z-axis rotated.
-		center = eye - glm::vec3(Rzz); //Add back eye via subtraction, as dir is opposite.
-		//
-		glm::vec4 up = glm::vec4(vup, 0); //Cast vec3 to vec4 for next line.
-		glm::vec4 Rup = R*up;
-		vup = glm::vec3(Rup);
-	}
-	void rotateLocal(const glm::vec3 &axis, const float angle) {
-		//zz, xx, yy are local axes.
-		//Compute the local axes first, then shift arguments into local space.
-		glm::vec3 zz = glm::normalize(eye - center); 
-		glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
-		glm::vec3 yy = glm::cross(zz, xx);
-		glm::vec3 aa = xx*axis.x + yy*axis.y + zz*axis.z; //Shifts here, aa is the axis you want to rotate around.
-		rotateGlobal(aa, angle);
-	}
+	void translateLocal(const glm::vec3 &t);
+	void rotateGlobal(const glm::vec3 &axis, const float angle);
+	void rotateLocal(const glm::vec3 &axis, const float angle);
+
+	void toSDL(FILE *F, int tabAmt = 0);
 };
-
-
-//-------------------------------------------------------------------------//
-// LIGHT
-//-------------------------------------------------------------------------//
 
 struct Light {
 	//72 bytes = 4 int/float + 4 vec4.
@@ -240,22 +176,19 @@ struct Light {
 	Light(void) {}
 	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
 		: type(type), position(pos), direction(dir), attenuation(atten) { }
+	void toSDL(FILE *F);
 };
-
 #define MAX_LIGHTS 8
 extern GLuint gLightsUBO;
 extern int gNumLights;
 extern Light gLights[MAX_LIGHTS];
-
 void initLightBuffer(void);
 
-//-------------------------------------------------------------------------//
-// MATERIAL, MESH & DRAWABLE
-//-------------------------------------------------------------------------//
-
+// RENDER PACKET: MATERIAL, MESH & DRAWABLE
 class Material
 {
 public:
+	bool inLibrary;
 	string name, vertexShaderName, fragmentShaderName;
 	int activeShaderProgram;
 	vector<GLuint> shaderProgramHandles;
@@ -271,12 +204,13 @@ public:
 	}
 	void setShaderProgram(GLuint shaderProgram) { shaderProgramHandles.push_back(shaderProgram); }
 	void bindMaterial(void);
+	void toSDL(FILE *F);
 };
-
 class TriMesh
 {
 public:
-	string name;
+	bool inLibrary;
+	string name, filename;
 	vector<string> attributes;
 	vector<float> vertexData;
 	vector<int> indices;
@@ -290,8 +224,8 @@ public:
 	bool readFromPly(const string &fileName, bool flipZ = false);
 	bool sendToOpenGL(void);
 	void draw(void);
+	void toSDL(FILE *F);
 };
-
 class Drawable {
 public:
 	TriMesh *triMesh;
@@ -305,12 +239,10 @@ public:
 	void setMaterial(Material *material_) { material = material_; }
 	virtual void draw(Camera& camera); //Not pure anymore, handles general mesh render.
 	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) {} //Handle subclass-specific preparation.
+	virtual void toSDL(FILE *F, int tabAmt = 0) {}
 };
 
-//-------------------------------------------------------------------------//
 // DRAWABLES
-//-------------------------------------------------------------------------//
-
 class Sprite : public Drawable {
 public:
 	vector<glm::vec4> frames; //Need this list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
@@ -331,34 +263,25 @@ public:
 	void switchAnim(int newRow) { activeRow = newRow; } //Just ensure animations have an enum.
 	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) override;
 	//virtual void draw(Camera& camera) override;
+	virtual void toSDL(FILE *F, int tabAmt = 0) override;
 };
-
 class Billboard : public Sprite {
 public:
 	//void draw(Camera& camera) override;
 	void prepareToDraw(const Camera& camera, Transform& T, Material& material) override;
+	void toSDL(FILE *F, int tabAmt = 0) override;
 };
-
-// should extend EngineObject
 class TriMeshInstance : public Drawable
 {
 public:
 	//void draw(Camera& camera) override;
+	void toSDL(FILE *F, int tabAmt = 0) override;
 };
-
-
-//-------------------------------------------------------------------------//
-// SCRIPT
-//-------------------------------------------------------------------------//
 
 class Script {
 public:
 	string name;
 };
-
-//-------------------------------------------------------------------------//
-// SCENE GRAPH NODE
-//-------------------------------------------------------------------------//
 
 class SceneGraphNode {
 public:
@@ -388,11 +311,10 @@ public:
 	~SceneGraphNode(void);
 	void draw(Camera &camera);
 	void update(Camera &camera);
+	void toSDL(FILE *F, int tabAmt = 0);
 };
 
-//===========
-// TEXT API
-//===========
-//void initText2D(const char * texturePath, int numRows, int numCols);
-//void printText2D(const char * text, int x, int y, int size);
-//void cleanupText2D();
+// BROKEN TEXT API
+// void initText2D(const char * texturePath, int numRows, int numCols);
+// void printText2D(const char * text, int x, int y, int size);
+// void cleanupText2D();

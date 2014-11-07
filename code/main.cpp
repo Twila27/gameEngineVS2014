@@ -1,17 +1,4 @@
-
-//-------------------------------------------------------------------------//
-// Transforms - Tests using transforms for objects
-// David Cline
-// June 27, 2014
-//-------------------------------------------------------------------------//
-
 #include "EngineUtil.h"
-
-//-------------------------------------------------------------------------//
-// Global State.  Eventually, this should include the global 
-// state of the system, including multiple scenes, objects, shaders, 
-// cameras, and all other resources needed by the system.
-//-------------------------------------------------------------------------//
 
 GLFWwindow* gWindow = NULL;
 string gWindowTitle = "OpenGL App";
@@ -23,7 +10,7 @@ glm::vec4 backgroundColor;
 const double FIXED_DT = 0.01;
 
 ISoundEngine* soundEngine = NULL;
-ISound* music = NULL;
+ISound* gBackgroundMusic = NULL;
 
 //Reason not using Scene is to preserve hot-updating scene files.
 map<string, TriMesh*> gMeshes;
@@ -50,10 +37,30 @@ const float crawl = 0.01f;
 double curr_xx, prev_xx, curr_yy, prev_yy;
 
 void useConsole(void);
-
-//-------------------------------------------------------------------------//
-// Callback for Keyboard Input
-//-------------------------------------------------------------------------//
+void saveWorldSettings(FILE *F) {
+	/* worldSettings windowTitle "Sprint 2: Simple Scene Graph (Parent-Child Transforms)" {
+		width 800
+		height 600
+		spp 4
+		backgroundColor [0.5 0.5 0.8]
+		backgroundMusic "aryx.s3m"
+		debugFont "ExportedFont.png"
+		fontTexNumRows 8
+		fontTexNumCols 8
+	}
+	*/
+	fprintf(F, "worldSettings windowTitle \"%s\" {\n", gWindowTitle.c_str());
+	fprintf(F, "\twidth %i\n", gWidth);
+	fprintf(F, "\theight %i\n", gHeight);
+	fprintf(F, "\tspp %i\n", gSPP);
+	fprintf(F, "\tbackgroundColor [%f %f %f]\n", backgroundColor.r, backgroundColor.g, backgroundColor.b);
+	if (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0) fprintf(F, "\tbackgroundMusic \"%s\"\n", gBackgroundMusic->getSoundSource()->getName());
+#ifdef _DEBUG
+	else ERROR("\tWarning: no background music was found or getSoundSource() returned 0.");
+	cout << "\tSkipping debug font settings.\n";
+#endif
+	fprintf(F, "}\n");
+}
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -65,6 +72,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	//Ctrl changes cameras, Shift changes scenes.
 	if (action == GLFW_PRESS) {
 		switch (key) {
+		case GLFW_KEY_M:
+			cout << gBackgroundMusic->getSoundSource()->getName() << endl;
+			break;
 		case GLFW_KEY_LEFT_CONTROL:
 			gActiveCamera = (gActiveCamera == 0) ? gCameras.size() - 1 : gActiveCamera - 1;
 			break;
@@ -100,8 +110,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_F1:
 			gShowPerFrameDebug = !gShowPerFrameDebug;
 			break;
+		case GLFW_KEY_B:
+			gBuildMode = !gBuildMode;
+			break;
 		case GLFW_KEY_GRAVE_ACCENT:
-			useConsole();
+			if (gBuildMode) useConsole();
 			break;
 		}
 	}
@@ -114,8 +127,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		printf("\n%c\n", (char)key);
 	}
 }
-#define tAmt 0.025f
-#define rAmt 0.01f
+float tAmt = 0.025f;
+float rAmt = 0.01f;
+float minSpeed = 0.025f;
 void keyboardCameraController(Camera &cam) {
 	if (glfwGetKey(gWindow, 'A')) cam.translateLocal(glm::vec3(-tAmt, 0, 0));
 	if (glfwGetKey(gWindow, 'D')) cam.translateLocal(glm::vec3(tAmt, 0, 0));
@@ -123,6 +137,8 @@ void keyboardCameraController(Camera &cam) {
 	if (glfwGetKey(gWindow, 'S')) cam.translateLocal(glm::vec3(0, 0, tAmt));
 	if (glfwGetKey(gWindow, 'Q')) cam.translateLocal(glm::vec3(0, -tAmt, 0));
 	if (glfwGetKey(gWindow, 'E')) cam.translateLocal(glm::vec3(0, tAmt, 0));
+	if (glfwGetKey(gWindow, '=')) tAmt += minSpeed;
+	if (glfwGetKey(gWindow, '-')) tAmt -= (tAmt - minSpeed <= minSpeed ? 0 : minSpeed);
 	if (glfwGetKey(gWindow, GLFW_KEY_LEFT)) cam.rotateGlobal(glm::vec3(0, 1, 0), rAmt);
 	if (glfwGetKey(gWindow, GLFW_KEY_RIGHT)) cam.rotateGlobal(glm::vec3(0, 1, 0), -rAmt);
 	if (glfwGetKey(gWindow, GLFW_KEY_UP)) cam.rotateLocal(glm::vec3(1, 0, 0), rAmt);
@@ -130,12 +146,7 @@ void keyboardCameraController(Camera &cam) {
 	cam.refreshTransform((float)gWidth, (float)gHeight);
 }
 
-//-------------------------------------------------------------------------//
-// Parse Scene File
-//-------------------------------------------------------------------------//
-
 string ONE_TOKENS = "{}[]()<>+-*/,;";
-
 void loadWorldSettings(FILE *F)
 {
 	string token, t;
@@ -156,7 +167,7 @@ void loadWorldSettings(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
-			ISound* music = soundEngine->play2D(fullFileName.c_str(), true); 
+			gBackgroundMusic = soundEngine->play2D(fullFileName.c_str(), true, false, true, irrklang::ESM_AUTO_DETECT, true);
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
 		}
 	}
@@ -165,8 +176,7 @@ void loadWorldSettings(FILE *F)
 	gWindow = createOpenGLWindow(gWidth, gHeight, gWindowTitle.c_str(), gSPP);
 	glfwSetKeyCallback(gWindow, keyCallback);
 
-	// Load the font.
-	//if (fontTexNumRows != -1) initText2D(fontFileName.c_str(), fontTexNumRows, fontTexNumCols);
+	//if (fontTexNumRows != -1) initText2D(fontFileName.c_str(), fontTexNumRows, fontTexNumCols); //Loading font.
 
 	// Prepare the lights.
 	initLightBuffer();
@@ -177,9 +187,7 @@ void loadWorldSettings(FILE *F)
 	gMeshes["flatCard"]->readFromPly("flatCard.ply", false);
 	gMeshes["flatCard"]->sendToOpenGL();
 
-	// Load the materials for billboards and sprites into the gMaterials map.
-	// There's one for sprite which won't move, one for billboard rotating yOnly, and another for allAxes rotation.
-	// Note these rely heavily on the Material ctor's settings for its color uniforms.
+	// Load the materials for billboards and sprites into the gMaterials map. Relies on Material() for color uniform values.
 	gMaterials["sprite"] = new Material();
 	gMaterials["sprite"]->name = "sprite";
 	gMaterials["sprite"]->setShaderProgram(createShaderProgram(loadShader("basicVertexShader.vs", GL_VERTEX_SHADER), loadShader("phongShadingSprite.fs", GL_FRAGMENT_SHADER)));
@@ -195,8 +203,7 @@ void loadWorldSettings(FILE *F)
 	gMaterials["allAxes"]->bindMaterial();
 
 }
-
-void loadMesh(FILE *F)
+void loadMesh(FILE *F, bool inLibrary = false)
 {
 	string token, meshName(""), fileName("");
 
@@ -205,14 +212,14 @@ void loadMesh(FILE *F)
 		else if (token == "name") getToken(F, meshName, ONE_TOKENS);
 		else if (token == "file") getToken(F, fileName, ONE_TOKENS);
 	}
-		
 	gMeshes[meshName] = new TriMesh();
 	gMeshes[meshName]->setName(meshName);
+	gMeshes[meshName]->filename = fileName;
+	gMeshes[meshName]->inLibrary = inLibrary;
 	gMeshes[meshName]->readFromPly(fileName, false);
 	gMeshes[meshName]->sendToOpenGL();
 }
-
-void loadMaterial(FILE *F)
+void loadMaterial(FILE *F, bool inLibrary = false)
 {
 	string token, materialName("");
 	GLuint vertexShader = NULL_HANDLE;
@@ -248,9 +255,9 @@ void loadMaterial(FILE *F)
 	m->setShaderProgram(createShaderProgram(vertexShader, fragmentShader)); //Return to modify this to take a container of shaders.
 	if (materialName != "") gMaterials[materialName] = m;
 	m->name = materialName;
+	m->inLibrary = inLibrary;
 	m->bindMaterial(); //Very important line!
 }
-
 Drawable* loadAndReturnMeshInstance(FILE *F)
 {
 	string token;
@@ -277,7 +284,6 @@ Drawable* loadAndReturnMeshInstance(FILE *F)
 	
 	return instance;
 }
-
 Drawable* loadAndReturnSprite(FILE *F) 
 {
 	string token;
@@ -333,7 +339,6 @@ Drawable* loadAndReturnSprite(FILE *F)
 
 	return sprite;
 }
-
 Drawable* loadAndReturnBillboard(FILE *F)
 {
 	string token;
@@ -365,7 +370,6 @@ Drawable* loadAndReturnBillboard(FILE *F)
 
 	return billboard;
 }
-
 void loadLight(FILE *F)
 {
 	string token;
@@ -395,7 +399,6 @@ void loadLight(FILE *F)
 
 	++gNumLights;
 }
-
 Camera* loadCamera(FILE *F)
 {
 	string token;
@@ -412,12 +415,11 @@ Camera* loadCamera(FILE *F)
 		else if (token == "zfar") getFloats(F, &(gCameras.back()->zfar), 1);
 		else if (token == "fovy") getFloats(F, &(gCameras.back()->fovy), 1);
 	}
-
+	gCameras.back()->inNode = false;
 	gCameras.back()->refreshTransform((float)gWidth, (float)gHeight);
 
 	return gCameras.back();
 }
-
 SceneGraphNode* loadAndReturnNode(FILE *F) 
 {
 	SceneGraphNode *n = new SceneGraphNode();
@@ -447,7 +449,11 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		}
 		else if (token == "maxRenderDist") getFloats(F, &renderThreshold, 1);
 		else if (token == "translation") getFloats(F, &(n->T.translation[0]), 3);
-		else if (token == "rotation") getFloats(F, &(n->T.rotation[0]), 4);
+		else if (token == "rotation") { 
+			glm::vec3 R;
+			getFloats(F, &R[0], 3);
+			n->T.rotation = glm::quat(R);
+		}
 		else if (token == "scale") getFloats(F, &(n->T.scale[0]), 3);
 		else if (token == "node") {
 			n->children.push_back(loadAndReturnNode(F));
@@ -456,6 +462,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		else if (token == "camera") {
 			n->cameras.push_back(loadCamera(F));
 			//gCameras.push_back(n->cameras.back()); //Already done in loadCamera().
+			n->cameras.back()->inNode = true;
 		}
 		else if (token == "script") {
 			string scriptName;
@@ -480,7 +487,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		//We subdivide this interval by the amount of objects in the LOD stack.
 	if (renderThreshold == -1.0f) {
 		ERROR("Need to specify maxRenderDist in node{}!", false);
-		renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
+		renderThreshold = 100; //Just a default, but really should specify, so I'm leaving in the warning.
 	}
 	for (float div = 1.0f; div <= (int)n->LODstack.size(); ++div)
 		n->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
@@ -492,7 +499,24 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 
 	return n;
 }
+void loadLibrary(const char *libFile) {
+	//No unloading needed.
+	//Add path used to EngineUtil PATH variable.
+	string lib = libFile;
+	int separatorIndex = lib.find_last_of("/");
+	if (separatorIndex < 0)	separatorIndex = lib.find_last_of("\\");
+	if (separatorIndex > 0)	addToPath(lib.substr(0, separatorIndex + 1));
 
+	FILE *F = openFileForReading(libFile);
+	string token;
+
+	while (getToken(F, token, ONE_TOKENS)) {
+		//cout << token << endl;
+		if (token == "mesh") loadMesh(F, true);
+		else if (token == "material") loadMaterial(F, true);
+	}
+	fclose(F);
+}
 void loadScene(const char *sceneFile)
 {
 	//Unload the previous scene if there was one.
@@ -522,6 +546,7 @@ void loadScene(const char *sceneFile)
 	while (getToken(F, token, ONE_TOKENS)) {
 		//cout << token << endl;
 		if (token == "worldSettings") loadWorldSettings(F);
+		else if (token == "library") { (getToken(F, token, ONE_TOKENS)); loadLibrary(token.c_str()); }
 		else if (token == "node") loadAndReturnNode(F);
 		else if (token == "mesh") loadMesh(F);
 		else if (token == "material") loadMaterial(F);
@@ -529,89 +554,8 @@ void loadScene(const char *sceneFile)
 		else if (token == "camera") loadCamera(F);
 		else if (token == "light") loadLight(F);
 	}
+	fclose(F);
 }
-
-//-------------------------------------------------------------------------//
-// Update
-//-------------------------------------------------------------------------//
-
-void update(void)
-{
-	gCameras[gActiveCamera]->refreshTransform((float)gWidth, (float)gHeight);
-
-	if (gShouldSwapScene) {
-		gShouldSwapScene = false;
-		if (music) music->drop();
-		soundEngine->stopAllSounds();
-		glfwTerminate();
-		cout << "\n================================================================================\n";
-		loadScene(gSceneFileNames[gActiveScene]);
-	}
-
-	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
-
-	//Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
-	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.rotation.y += rAmt;
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_F)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.rotation.y -= rAmt;
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_T)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			//it->second->setTranslation(glm::vec3(0, rAmt, 0));
-			it->second->addTranslation(glm::vec3(0, rAmt, 0));
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_G)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			//it->second->setTranslation(glm::vec3(0, -rAmt, 0));
-			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
-	}
-
-	//Play the sound of an object within the specified number range below, if it isn't yet played.
-	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
-	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) {
-		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;
-		if (it->second->sounds.size() > 0 
-			&& !soundEngine->isCurrentlyPlaying(it->second->sounds.back()->getSoundSource()) 
-			&& camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z <= 10.0)
-				soundEngine->play3D(it->second->sounds.back()->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
-	}
-}
-
-//-------------------------------------------------------------------------//
-// Draw a frame
-//-------------------------------------------------------------------------//
-
-void render(void)
-{
-	// clear color and depth buffer
-	if (gBuildMode) glClearColor(0, 0, 0, 1.0f);
-	else glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	if (gShowPerFrameDebug) {
-		//printText2D("This is a test", 0, 0, 32);
-	}
-
-	//Update lights.
-	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Light)*gNumLights, gLights); //Copy data into buffer w/o glBufferData()'s allocation.
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-	// draw scene
-	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->draw(*gCameras[gActiveCamera]);
-}
-
-//-------------------------------------------------------------------------//
-// Console for Commands
-//-------------------------------------------------------------------------//
 
 void consoleLoadCamera()
 {
@@ -645,6 +589,7 @@ void consoleLoadCamera()
 	cout << "\tzFar - 1000 Norm: ";
 	cin >> gCameras.back()->zfar;
 
+	gCameras.back()->inNode = false;
 	cout << "\tCamera successfully initialized and added to gCameras.\n";
 } //Relies on the camera having been just added, see in useConsole's create camera command code.
 SceneGraphNode* consoleLoadNode(const string& name = "") { 
@@ -674,6 +619,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 	do {
 		cout << "\tAdd camera (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
 		consoleLoadCamera();
+		gCameras.back()->inNode = true;
 		gNodes[nodeName]->cameras.push_back(gCameras.back());
 	} while (true);
 
@@ -699,9 +645,9 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 			//Assign image or sprite sheet.
 			Material* m = sprite->getMaterial();
 			m->textures.push_back(new RGBAImage());
-			cout << "\tTip: Assigning uDiffuseTex as the image's corresponding sampler2D uniform name by default.\n";
+			cout << "\tTip: uDiffuseTex is the image's sampler2D uniform name by default.\n";
 			m->textures.back()->name = "uDiffuseTex"; //Store uniform name in RGBAImage.
-			cout << "\tPlease enter the filename of the spritesheet.png located among the current paths below: \n";
+			cout << "\tFilename, e.g. spritesheet.png (active paths besides cwd below): \n";
 			for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << '\t' << *it << endl;
 			cin >> tmp;
 			m->textures.back()->loadPNG(tmp);
@@ -816,7 +762,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 	//We subdivide this interval by the amount of objects in the LOD stack.
 	if (renderThreshold == -1.0f) {
 		ERROR("Need to specify maxRenderDist in node{}!", false);
-		renderThreshold = 10; //Just a default, but really should specify, so I'm leaving in the warning.
+		renderThreshold = 100; //Just a default, but really should specify, so I'm leaving in the warning.
 	}
 	for (float div = 1.0f; div <= (int)gNodes[nodeName]->LODstack.size(); ++div)
 		gNodes[nodeName]->switchingDistances.push_back(renderThreshold / div); //Note this implies descending order! But makes switchingDistances[0] our easy-access for a render cutoff.
@@ -827,6 +773,165 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 	gNodes[nodeName]->setTranslation(gNodes[nodeName]->T.translation); //Also handles camera updates.
 
 	return gNodes[nodeName];
+}
+void update(void)
+{
+	gCameras[gActiveCamera]->refreshTransform((float)gWidth, (float)gHeight);
+
+	if (gShouldSwapScene) {
+		gShouldSwapScene = false;
+		if (gBackgroundMusic) gBackgroundMusic->drop();
+		soundEngine->stopAllSounds();
+		glfwTerminate();
+		cout << "\n================================================================================\n";
+		loadScene(gSceneFileNames[gActiveScene]);
+	}
+
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
+
+	//Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
+	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.rotation.y += rAmt;
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_F)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			it->second->T.rotation.y -= rAmt;
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_T)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			//it->second->setTranslation(glm::vec3(0, rAmt, 0));
+			it->second->addTranslation(glm::vec3(0, rAmt, 0));
+	}
+	if (glfwGetKey(gWindow, GLFW_KEY_G)) {
+		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
+			//it->second->setTranslation(glm::vec3(0, -rAmt, 0));
+			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
+	}
+
+	//Play the sound of an object within the specified number range below, if it isn't yet played.
+	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) {
+		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;
+		if (it->second->sounds.size() > 0
+			&& !soundEngine->isCurrentlyPlaying(it->second->sounds.back()->getSoundSource())
+			&& camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z <= 10.0)
+			soundEngine->play3D(it->second->sounds.back()->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
+	}
+}
+void render(void)
+{
+	// clear color and depth buffer
+	if (gBuildMode) glClearColor(0, 0, 0, 1.0f);
+	else glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if (gShowPerFrameDebug) {
+		//printText2D("This is a test", 0, 0, 32);
+	}
+
+	//Update lights.
+	glBindBuffer(GL_UNIFORM_BUFFER, gLightsUBO); //If we get an exception being thrown here, double-check the scene file contents, may be overwritten/corrupted.
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Light)*gNumLights, gLights); //Copy data into buffer w/o glBufferData()'s allocation.
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	// draw scene
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->draw(*gCameras[gActiveCamera]);
+}
+int main(int numArgs, char **args)
+{
+	// check usage
+	if (numArgs < 2) {
+		cout << "Proper Input: gameEngine.exe sceneFile.scene [sceneFile2.scene ...]" << endl;
+		exit(0);
+	}
+
+	if (args[1] == "-b") gBuildMode = true;
+
+	// Start sound engine
+	soundEngine = createIrrKlangDevice();
+	if (!soundEngine) return 0;
+	soundEngine->setListenerPosition(vec3df(0, 0, 0), vec3df(0, 0, 1));
+	soundEngine->setSoundVolume(0.25f); // master volume control
+
+	// Play 3D sound
+	//string soundFileName;
+	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
+	//if (music) music->setMinDistance(5.0f); // distance of full volume
+
+	// Load all curernt args into gSceneFileNames to swap about later. i=1 for start because args[0] is just the program name.
+	for (int i = (gBuildMode ? 2 : 1); i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
+
+	if (gSceneFileNames.size() == 0) ERROR("Failed to supply any scene file names, exiting engine.");
+
+	// Load first scene.
+	loadScene(gSceneFileNames[0]);
+
+	// start time (used to time framerate)
+	double newTime = 0;
+	double frameTime = 0.0;
+	double runningTime = 0.0;
+	double currTime = TIME();
+	double accumulator = 0.0;
+	double gFPS = 0.0;
+
+	// game loop
+	while (true) {
+		//handle time
+		newTime = TIME();
+		frameTime = newTime - currTime;
+		currTime = newTime;
+
+		accumulator += frameTime;
+
+		// update wrapped in the GafferOnPhysics final dt loop trick.
+		while (accumulator >= FIXED_DT) {
+			update();
+			accumulator -= FIXED_DT;
+			runningTime += FIXED_DT;
+		}	
+		render();
+
+		// handle input
+		glfwPollEvents();
+		keyboardCameraController(*gCameras[gActiveCamera]);
+		if (glfwWindowShouldClose(gWindow) != 0) break;
+
+		if (gShowPerFrameDebug) {
+			//Print mouse pos.
+			double xx, yy;
+			glfwGetCursorPos(gWindow, &xx, &yy);
+			printf("%1.3f %1.3f ", xx, yy);
+
+			//Print framerate.
+			printf("\rFPS: %1.0f  ", gFPS);
+		}
+		//Update framerate.
+		gFPS = 1.0 / (newTime - currTime);
+		
+		// swap buffers
+		//SLEEP(1); // sleep 1 millisecond to avoid busy waiting
+		glfwSwapBuffers(gWindow);
+	}
+
+	// Shut down sound engine
+	if (gBackgroundMusic) gBackgroundMusic->drop(); // release music stream.
+	soundEngine->drop(); // delete engine
+
+	// Close OpenGL window and terminate GLFW
+	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
+	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it; //Because noptr array.
+	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
+	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
+	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
+	//cleanupText2D(); // Delete font VBO, shader, texture.
+	glfwTerminate();
+
+	return 0;
 }
 void useConsole(void)
 {
@@ -840,7 +945,7 @@ void useConsole(void)
 		flag = false;
 		getline(cin, input);
 		//cout << input << endl;
-		
+
 		//Single-token commands first.
 		if (input == "b" || input == "build") gBuildMode = true;
 		else if (input == "shh") soundEngine->setAllSoundsPaused(true);
@@ -854,18 +959,18 @@ void useConsole(void)
 				if (token == "load")
 				{
 					iss >> token;
-					if (token == "load") 
-					{
-						cout << "\tValid Commands:\n";
-						cout << "\tload [-a] nameOfFileToLoad.scene\n";
-						break;
-					}
 					if (token == "-a") //Append to the gSceneFileNames container.
 					{
 						cout << "\tAppending to gSceneFileNames, updating gActiveScene...\n";
 						flag = true; //Not pushing it back here because it may be a bad name.
 						gActiveScene = gSceneFileNames.size() - 1;
 						iss >> token; //Catch token up to the non -a case.
+					}
+					if (token == "load" || token == "-a")
+					{
+						cout << "\tValid Commands:\n";
+						cout << "\tload [-a] nameOfFileToLoad.scene\n";
+						break;
 					}
 					FILE * f = openFileForReading(token);
 					if (f == nullptr) cout << "\tFile not found. Please ensure the name is correct and try again.\n";
@@ -881,31 +986,46 @@ void useConsole(void)
 				else if (token == "save")
 				{
 					iss >> token;
-					if (token == "save")
-					{
-						cout << "\tValid Commands:\n";
-						cout << "\tsave [-q] fileNameToSaveTo.scene\n";
-						cout << "\tReplace scene name by the keyword \'this\' to save active scene.\n";
-						break;
-					}
 					if (token == "-q")
 					{
 						cout << "\tWill quit console after save completes.\n";
 						flag = true;
 						iss >> token; //Catch token up to the non -q case.
 					}
-					else if (token == "this")
+					if (token == "save" || token == "-q")
 					{
-						token = gActiveSceneName;
+						cout << "\tValid Commands:\n";
+						cout << "\tsave [-q] fileNameToSaveTo.scene\n";
+						cout << "\tReplace fileNameToSaveToScene.scene by \'this\' to save active scene.\n";
+						break;
 					}
+					else if (token == "this") token = gActiveSceneName;
 					//Call toString() of all appropriate objects over all global state containers.
-					//fprintf("format as in SDL %s", objOfInterestInRightOrder.toString());
-					if (flag) return;
+					//fprintf(F, "\n%s\n", objOfInterestInRightOrder.toSDL());
+					FILE *F = fopen(token.c_str(), "w"); //Will erase old file and create a new one over it.
+					saveWorldSettings(F); fprintf(F, "\n"); cout << "\tFinished saving worldSettings.\n";
+					for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) if (!(*it)->inNode) (*it)->toSDL(F);	
+						fprintf(F, "\n"); cout << "\tFinished saving cameras.\n";
+					for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) if (!it->second->inLibrary && it->second->name != "flatCard") it->second->toSDL(F); 
+						fprintf(F, "\n"); cout << "\tFinished saving meshes.\n";
+					for (int i = 0; i < gNumLights; ++i) gLights[i].toSDL(F); 
+						fprintf(F, "\n"); cout << "\tFinished saving lights.\n";
+					for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) if (!it->second->inLibrary && it->second->name != "allAxes" && it->second->name != "yOnly" && it->second->name != "sprite") it->second->toSDL(F); 
+						fprintf(F, "\n"); cout << "\tFinished saving materials.\n";
+					for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) if (it->second->parent == nullptr) it->second->toSDL(F); fprintf(F, "\n"); cout << "\tFinished saving nodes.\n";
+					fclose(F);
+					if (flag) {
+						cout << "\n================================================================================";
+						cout << "\t\t\t\tExiting Console & Engine";
+						cout << "\n================================================================================\n";
+						glfwSetWindowShouldClose(gWindow, true);
+						return;
+					}
 				}
 				else if (token == "create")
 				{
 					iss >> token;
-					if (token == "scene") 
+					if (token == "scene")
 					{
 						iss >> token;
 						if (token == "scene")
@@ -949,14 +1069,14 @@ void useConsole(void)
 
 						cout << "\tAdding default camera.\n";
 						fprintf(g, "\
-						camera name \"camera1\" {\n\
-							eye[0 6 10]\n\
-							center[0 0 1]\n\
-							vup[0 1 0]\n\
-							fovy 0.5\n\
-							znear 0.1\n\
-							zfar 1000\n\
-						}\n");
+								   						camera name \"camera1\" {\n\
+																					eye[0 6 10]\n\
+																												center[0 0 1]\n\
+																																			vup[0 1 0]\n\
+																																										fovy 0.5\n\
+																																																	znear 0.1\n\
+																																																								zfar 1000\n\
+																																																														}\n");
 
 						fclose(g);
 						cout << "\tScene creation successful.\n";
@@ -1068,9 +1188,9 @@ void useConsole(void)
 						cout << "\tFragment Shader Filename.fs: ";
 						cin >> gMaterials[token]->fragmentShaderName;
 						gMaterials[token]->setShaderProgram(createShaderProgram(
-							loadShader(gMaterials[token]->vertexShaderName, GL_VERTEX_SHADER), 
+							loadShader(gMaterials[token]->vertexShaderName, GL_VERTEX_SHADER),
 							loadShader(gMaterials[token]->fragmentShaderName, GL_FRAGMENT_SHADER)
-						)); //Return to modify this to take a container of shaders.
+							)); //Return to modify this to take a container of shaders.
 
 						string tmp;
 						do {
@@ -1144,9 +1264,9 @@ void useConsole(void)
 					if (token == "cameras") for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) cout << '\t' << (*it)->name << endl;
 					else if (token == "lights")
 					{
-						for (int i = 0; i < gNumLights; ++i) 
+						for (int i = 0; i < gNumLights; ++i)
 						{
-							switch (gLights[i].type) 
+							switch (gLights[i].type)
 							{
 							case Light::LIGHT_TYPE::POINT: cout << "\tpoint light\n"; break;
 							case Light::LIGHT_TYPE::DIRECTIONAL: cout << "\tdirectional light\n"; break;
@@ -1173,7 +1293,7 @@ void useConsole(void)
 					{
 						iss >> token;
 						if (token == "create");
-						else if (token == "scene") 
+						else if (token == "scene")
 						{
 							cout << "\tcreate scene sceneNameToCreate.scene\n";
 							cout << "\tFile content will be overwritten; a file will be created if none exists.\n";
@@ -1184,108 +1304,9 @@ void useConsole(void)
 				}
 			}
 		}
-	} while (true);
+	} while (true); //Console IO loop.
 	cout << "\n================================================================================";
 	cout << "\t\t\t\tExiting Console";
 	cout << "\n================================================================================\n";
 }
-
-//-------------------------------------------------------------------------//
-// Main method
-//-------------------------------------------------------------------------//
-
-int main(int numArgs, char **args)
-{
-	// check usage
-	if (numArgs < 2) {
-		cout << "Proper Input: gameEngine.exe sceneFile.scene [sceneFile2.scene ...]" << endl;
-		exit(0);
-	}
-
-	if (args[1] == "-b") gBuildMode = true;
-
-	// Start sound engine
-	soundEngine = createIrrKlangDevice();
-	if (!soundEngine) return 0;
-	soundEngine->setListenerPosition(vec3df(0, 0, 0), vec3df(0, 0, 1));
-	soundEngine->setSoundVolume(0.25f); // master volume control
-
-	// Play 3D sound
-	//string soundFileName;
-	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
-	//if (music) music->setMinDistance(5.0f); // distance of full volume
-
-	// Load all curernt args into gSceneFileNames to swap about later. i=1 for start because args[0] is just the program name.
-	for (int i = (gBuildMode ? 2 : 1); i < numArgs; ++i) gSceneFileNames.push_back(args[i]);
-
-	if (gSceneFileNames.size() == 0) ERROR("Failed to supply any scene file names, exiting engine.");
-
-	// Load first scene.
-	loadScene(gSceneFileNames[0]);
-
-	// start time (used to time framerate)
-	double newTime = 0;
-	double frameTime = 0.0;
-	double runningTime = 0.0;
-	double currTime = TIME();
-	double accumulator = 0.0;
-	double gFPS = 0.0;
-
-	// render loop
-	while (true) {
-		//handle time
-		newTime = TIME();
-		frameTime = newTime - currTime;
-		currTime = newTime;
-
-		accumulator += frameTime;
-
-		// update wrapped in the GafferOnPhysics final dt loop trick.
-		while (accumulator >= FIXED_DT) {
-			update();
-			accumulator -= FIXED_DT;
-			runningTime += FIXED_DT;
-		}	
-		render();
-
-		// handle input
-		glfwPollEvents();
-		keyboardCameraController(*gCameras[gActiveCamera]);
-		if (glfwWindowShouldClose(gWindow) != 0) break;
-
-		if (gShowPerFrameDebug) {
-			//Print mouse pos.
-			double xx, yy;
-			glfwGetCursorPos(gWindow, &xx, &yy);
-			printf("%1.3f %1.3f ", xx, yy);
-
-			//Print framerate.
-			printf("\rFPS: %1.0f  ", gFPS);
-		}
-		//Update framerate.
-		gFPS = 1.0 / (newTime - currTime);
-		
-		// swap buffers
-		//SLEEP(1); // sleep 1 millisecond to avoid busy waiting
-		glfwSwapBuffers(gWindow);
-	}
-
-	// Shut down sound engine
-	if (music) music->drop(); // release music stream.
-	soundEngine->drop(); // delete engine
-
-	// Close OpenGL window and terminate GLFW
-	for (auto it = gCameras.begin(); it != gCameras.end(); ++it) delete *it;
-	//for (auto it = gLights.begin(); it != gLights.end(); ++it) delete *it; //Because noptr array.
-	for (auto it = gNodes.begin(); it != gNodes.end(); ++it) delete it->second;
-	for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it) delete (*it).second;
-	for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it) delete (*it).second;
-	//cleanupText2D(); // Delete font VBO, shader, texture.
-	glfwTerminate();
-
-	return 0;
-}
-
-//-------------------------------------------------------------------------//
-
 

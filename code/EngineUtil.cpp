@@ -1,12 +1,3 @@
-
-//-------------------------------------------------------------------------//
-// MyUtil.h
-// Some utility stuff - file reading and such
-//
-// David Cline
-// 6/14/2014
-//-------------------------------------------------------------------------//
-
 // Local includes
 #include "EngineUtil.h"
 
@@ -24,12 +15,10 @@ void ERROR(const string &msg, bool doExit)
 		exit(0);
 	}
 }
-
 double TIME(void)
 {
 	return (double)clock() / (double)CLOCKS_PER_SEC;
 }
-
 void SLEEP(int millis)
 {
 	this_thread::sleep_for(chrono::milliseconds(millis));
@@ -77,9 +66,6 @@ GLFWwindow* createOpenGLWindow(int width, int height, const char *title, int sam
 	printf("OpenGL Version: %s\n", GL_version);
 	return window;
 }
-
-//-------------------------------------------------------------------------//
-
 GLuint loadShader(const string &fileName, GLuint shaderType)
 {
 	// load the shader as a file
@@ -124,9 +110,6 @@ GLuint loadShader(const string &fileName, GLuint shaderType)
 
 	return shaderHandle;
 }
-
-//-------------------------------------------------------------------------//
-
 GLuint createShaderProgram(GLuint vertexShader, GLuint fragmentShader)
 {
 	// Create and link the shader program
@@ -182,21 +165,17 @@ void printMat(const glm::mat4x4 &m)
 //-------------------------------------------------------------------------//
 
 vector<string> PATH;
-
 const vector<string>& getPATH() { return PATH; }
-
 void addToPath(const string &p)
 {
 	PATH.push_back(p);
 }
-
 void removeFromPath(const string &p)
 {
 	for (int i = (int)p.length() - 1; i >= 0; i--) {
 		if (PATH[i] == p) PATH.erase(PATH.begin() + i);
 	}
 }
-
 bool getFullFileName(const string &fileName, string &fullName)
 {
 	for (int i = -1; i < (int)PATH.size(); i++) {
@@ -212,7 +191,6 @@ bool getFullFileName(const string &fileName, string &fullName)
 	fullName = "";
 	return false;
 }
-
 FILE *openFileForReading(const string &fileName)
 {
 	string fullName;
@@ -226,9 +204,6 @@ FILE *openFileForReading(const string &fileName)
 	ERROR(msg.c_str(), false);
 	return NULL;
 }
-
-//-------------------------------------------------------------------------//
-
 bool getToken(FILE *f, string &token, const string &oneCharTokens)
 {
 	token = "";
@@ -275,9 +250,6 @@ bool getToken(FILE *f, string &token, const string &oneCharTokens)
 	//cout << token << endl;
 	return (token.length() > 0);
 }
-
-//-------------------------------------------------------------------------//
-
 int getFloats(FILE *f, float *a, int num)
 {
 	string token;
@@ -294,7 +266,6 @@ int getFloats(FILE *f, float *a, int num)
 	}
 	return count;
 }
-
 int getInts(FILE *f, int *a, int num)
 {
 	string token;
@@ -311,8 +282,6 @@ int getInts(FILE *f, int *a, int num)
 	}
 	return count;
 }
-//-------------------------------------------------------------------------//
-
 bool loadFileAsString(const string &fileName, string &fileContents)
 {
 	printf("loading file '%s'\n", fileName.c_str());
@@ -333,9 +302,6 @@ bool loadFileAsString(const string &fileName, string &fileContents)
 	fileStream.close();
 	return false;
 }
-
-//-------------------------------------------------------------------------//
-
 void replaceIncludes(string &src, string &dest, const string &directive,
 	string &alreadyIncluded, bool onlyOnce)
 {
@@ -379,7 +345,6 @@ RGBAImage::~RGBAImage()
 	if (textureId != NULL_HANDLE) glDeleteTextures(1, &textureId);
 	if (samplerId != NULL_HANDLE) glDeleteSamplers(1, &samplerId);
 }
-
 bool RGBAImage::loadPNG(const string &fileName, bool doFlipY)
 {
 	this->fileName = fileName;
@@ -396,7 +361,6 @@ bool RGBAImage::loadPNG(const string &fileName, bool doFlipY)
 	//name = fileName;
 	return true;
 }
-
 bool RGBAImage::writeToPNG(const string &fileName)
 {
 	unsigned error = lodepng::encode(fileName.c_str(), pixels, width, height);
@@ -406,7 +370,6 @@ bool RGBAImage::writeToPNG(const string &fileName)
 	}
 	return true;
 }
-
 void RGBAImage::flipY(void)
 {
 	unsigned int *a, *b;
@@ -423,7 +386,6 @@ void RGBAImage::flipY(void)
 		}
 	}
 }
-
 void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipMap)
 {
 	if (width <= 0 || height <= 0) return;
@@ -438,6 +400,43 @@ void RGBAImage::sendToOpenGL(GLuint magFilter, GLuint minFilter, bool createMipM
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 }
+
+//-------------------------------------------------------------------------//
+
+void Camera::refreshTransform(float screenWidth, float screenHeight)
+{
+	glm::mat4x4 worldView = glm::lookAt(eye, center, vup);
+	glm::mat4x4 project = glm::perspective((float)fovy,
+		(float)(screenWidth / screenHeight), (float)znear, (float)zfar);
+	worldViewProject = project * worldView;
+}
+void Camera::translateLocal(const glm::vec3 &t) {
+	glm::vec3 zz = glm::normalize(eye - center);
+	glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
+	glm::vec3 yy = glm::cross(zz, xx);
+	glm::vec3 tt = t.x*xx + t.y*yy + t.z*zz;
+	eye += tt; center += tt;
+}
+void Camera::rotateGlobal(const glm::vec3 &axis, const float angle) {
+	glm::mat4x4 R = glm::axisAngleMatrix(axis, angle); //Rotation transform matrix.
+	glm::vec4 zz = glm::vec4(eye - center, 0); //Local z axis == obj.pos - obj.dir, unnormalized?
+	glm::vec4 Rzz = R*zz; //Z-axis rotated.
+	center = eye - glm::vec3(Rzz); //Add back eye via subtraction, as dir is opposite.
+	//
+	glm::vec4 up = glm::vec4(vup, 0); //Cast vec3 to vec4 for next line.
+	glm::vec4 Rup = R*up;
+	vup = glm::vec3(Rup);
+}
+void Camera::rotateLocal(const glm::vec3 &axis, const float angle) {
+	//zz, xx, yy are local axes. Compute them first, then shift arguments into local space.
+	glm::vec3 zz = glm::normalize(eye - center);
+	glm::vec3 xx = glm::normalize(glm::cross(vup, zz));
+	glm::vec3 yy = glm::cross(zz, xx);
+	glm::vec3 aa = xx*axis.x + yy*axis.y + zz*axis.z; //Shifts here, aa is the axis you want to rotate around.
+	rotateGlobal(aa, angle);
+}
+
+//-------------------------------------------------------------------------//
 
 void Material::bindMaterial(void) {
 
@@ -578,15 +577,11 @@ bool TriMesh::readFromPly(const string &fileName, bool flipZ)
 	fclose(f);
 	return true;
 }
-
-//-------------------------------------------------------------------------//
-
 #define V_POSITION 0
 #define V_NORMAL 1
 #define V_ST 2
 #define V_COLOR 3
 int NUM_COMPONENTS[] = { 3, 3, 2, 3 };
-
 bool TriMesh::sendToOpenGL(void)
 {
 	// Create vertex array object.  The vertex array object
@@ -644,9 +639,6 @@ bool TriMesh::sendToOpenGL(void)
 
 	return true;
 }
-
-//-------------------------------------------------------------------------//
-
 void TriMesh::draw(void)
 {
 	glBindVertexArray(vao); // bind the vertices
@@ -691,7 +683,6 @@ void Sprite::prepareToDraw(const Camera& camera, Transform& T, Material& materia
 #endif
 	glUseProgram(0);
 }
-
 void Billboard::prepareToDraw(const Camera &camera, Transform& T, Material& material)
 {
 	glm::vec3 vd = glm::vec3((material.name == "allAxes") ? camera.eye - T.translation : camera.eye - camera.center);
@@ -703,7 +694,6 @@ void Billboard::prepareToDraw(const Camera &camera, Transform& T, Material& mate
 		T.rotation *= glm::quat(cos(xRot*0.5f), glm::vec3(1, 0, 0)*sin(xRot*0.5f));
 	}
 }
-
 void Drawable::draw(Camera &camera) 
 {
 	glUseProgram(material->shaderProgramHandles[material->activeShaderProgram]);
@@ -715,31 +705,11 @@ void Drawable::draw(Camera &camera)
 	glUseProgram(0);
 }
 
-//void TriMeshInstance::draw(Camera &camera)
-//{
-//	Drawable::draw(camera);
-//}
-
-//-------------------------------------------------------------------------//
-
-//void Sprite::draw(Camera &camera) 
-//{
-//	Drawable::draw(camera);
-//}
-
-//-------------------------------------------------------------------------//
-
-//void Billboard::draw(Camera &camera) 
-//{
-//	Drawable::draw(camera);
-//}
-
 //-------------------------------------------------------------------------//
 
 GLuint gLightsUBO = NULL_HANDLE;
 int gNumLights = 0;
 Light gLights[MAX_LIGHTS];
-
 void initLightBuffer() {
 	if (gLightsUBO != NULL_HANDLE) return;
 	glGenBuffers(1, &gLightsUBO); // Generate a buffer that will send the lights to OpenGL, shared between shaders.
@@ -761,7 +731,6 @@ SceneGraphNode::~SceneGraphNode(void) {
 	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
 	for (auto it = sounds.begin(); it != sounds.end(); ++it) if (*it != nullptr) (*it)->drop();
 }
-
 void SceneGraphNode::update(Camera &camera) 
 {
 	//Update transform for self, if there is no parent to update us for ourselves.
@@ -845,11 +814,221 @@ void SceneGraphNode::draw(Camera &camera) {
 
 //-------------------------------------------
 
-RGBAImage * textTex;
-GLuint textVboID;
-GLuint textUVboID;
-GLuint textShaderProgramHandle;
-GLuint fontTexNumRows, fontTexNumCols;
+const char* addTabs(const int amt) { 
+	char *t = new char[amt+1];
+	for (int i = 0; i < amt; ++i) t[i] = '\t'; 
+	t[amt] = '\0';
+	return t; 
+}
+void Camera::toSDL(FILE *F, int tabAmt) {
+	/*
+	camera name "camera1" {
+		eye [0 6 10]
+		center [0 0 1]
+		vup [0 1 0]
+		fovy 0.5
+		znear 0.1
+		zfar 1000
+	}
+	*/
+	const char* t = addTabs(tabAmt);
+	fprintf(F, "%scamera name \"%s\" {\n", t, name.c_str());
+	fprintf(F, "\t%seye [%f %f %f]\n", t, eye.x, eye.y, eye.z);
+	fprintf(F, "\t%scenter [%f %f %f]\n", t, center.x, center.y, center.z);
+	fprintf(F, "\t%svup [%f %f %f]\n", t, vup.x, vup.y, vup.z);
+	fprintf(F, "\t%sfovy %f\n", t, fovy);
+	fprintf(F, "\t%sznear %f\n", t, znear);
+	fprintf(F, "\t%szfar %f\n", t, zfar);
+	fprintf(F, "%s}\n", t);
+}
+void TriMesh::toSDL(FILE *F) {
+	/*
+	mesh name "monkeyMesh" {
+		file "monkeyTex.ply"
+	}
+	*/
+	fprintf(F, "mesh name \"%s\" {\n", name.c_str());
+	fprintf(F, "\tfile \"%s\"\n", filename.c_str());
+	fprintf(F, "}\n");
+}
+void Light::toSDL(FILE *F) {
+	/*
+	light {
+		isOn 1
+		type "point"
+		position [2 0 2]
+		intensity [0.5 0.5 0.5]
+		attenuation [1 1 1]
+	}
+	light {
+		isOn 1
+		type "directional"
+		direction [0 1 0]
+		intensity [1 1 1]
+		attenuation [1 1 1]
+	}
+	light {
+		isOn 1
+		type "spot"
+		position [2 2 2]
+		direction [1 1 1]
+		intensity [0 0 0] //colours can and should be outside 0.0 to 1.0!
+		attenuation [0.5 1 1] //F_att value 0 means full light?
+		alpha 0.1 //used to end fade?
+		theta 0.1 //used to start fade?
+	}
+	*/
+	fprintf(F, "light {\n");
+	fprintf(F, "\tisOn %i\n", isOn);
+	fprintf(F, "\ttype %i\n", type); //Kind of messes up since it isn't a string but oh well.
+	switch (type) {
+		case LIGHT_TYPE::POINT:
+			fprintf(F, "\tposition [%f %f %f]\n", position.x, position.y, position.z);
+			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
+			fprintf(F, "\tattenuation [%f %f %f]\n", attenuation.x, attenuation.y, attenuation.z);
+			break;
+		case LIGHT_TYPE::DIRECTIONAL:
+			fprintf(F, "\tdirection [%f %f %f]\n", direction.x, direction.y, direction.z);
+			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
+			fprintf(F, "\tattenuation [%f %f %f]\n", attenuation.x, attenuation.y, attenuation.z);
+			break;
+		case LIGHT_TYPE::SPOT_LIGHT:
+			fprintf(F, "\tposition [%f %f %f]\n", position.x, position.y, position.z);
+			fprintf(F, "\tdirection [%f %f %f]\n", direction.x, direction.y, direction.z);
+			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
+			fprintf(F, "\tattenuation [%f %f %f]\n", attenuation.x, attenuation.y, attenuation.z);
+			fprintf(F, "\talpha %f\n", alpha);
+			fprintf(F, "\ttheta %f\n", theta);
+			break;
+	}
+	fprintf(F, "}\n");
+}
+void Material::toSDL(FILE *F) {
+	/*
+	material name "phongShader" {
+		vertexShader "basicVertexShader.vs"
+		fragmentShader "phongShading.fs"
+		texture uDiffuseTex "hex.png"
+		color uDiffuseColor [2 2 2 1]
+		color uSpecularColor [0.2 0.2 0.2 3]
+		color uAmbientIntensity [0.2 0.2 0.2 1]
+	}
+	*/
+	fprintf(F, "material name \"%s\" {\n", name.c_str());
+	fprintf(F, "\tvertexShader \"%s\"\n", vertexShaderName.c_str());
+	fprintf(F, "\tfragmentShader \"%s\"\n", fragmentShaderName.c_str());
+	for (int i = 0; i < colors.size(); ++i) fprintf(F, "\tcolor %s [%f %f %f]\n", colors[i]->name.c_str(), colors[i]->val.r, colors[i]->val.g, colors[i]->val.b);
+	for (int i = 0; i < textures.size(); ++i) fprintf(F, "\ttexture %s \"%s\"\n", textures[i]->name.c_str(), textures[i]->fileName.c_str());
+	fprintf(F, "}\n");
+}
+void Sprite::toSDL(FILE *F, int tabAmt) {
+	/*
+	sprite {
+		image uDiffuseTex "spriteSheet.png"
+		animDir -1
+		animRate 1
+		frameWidth 480
+		frameHeight 600
+	}
+	*/
+	const char* t = addTabs(tabAmt);
+	fprintf(F, "\t%ssprite {\n", t);
+	fprintf(F, "\t\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same material for sprites.
+	fprintf(F, "\t\t%sanimDir %i\n", t, animDir);
+	fprintf(F, "\t\t%sanimRate %f\n", t, animRate);
+	fprintf(F, "\t\t%sframeWidth %i\n", t, frameWidth);
+	fprintf(F, "\t\t%sframeHeight %i\n", t, frameHeight);
+	fprintf(F, "\t%s}\n", t);
+}
+void Billboard::toSDL(FILE *F, int tabAmt) {
+	/*
+	billboard {
+		material "allAxes"
+		image uDiffuseTex "uNormalMap.png"
+	}
+	*/
+	const char* t = addTabs(tabAmt);
+	fprintf(F, "\t%sbillboard {\n", t);
+	fprintf(F, "\t\t%smaterial \"%s\"\n", t, material->name.c_str());
+	fprintf(F, "\t\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same materials for billboards.
+	fprintf(F, "\t%s}\n", t);
+}
+void TriMeshInstance::toSDL(FILE *F, int tabAmt) {
+	/*
+	meshInstance {
+		mesh "cubeCenter"
+		material "cubeMat"
+	}
+	*/
+	const char* t = addTabs(tabAmt);
+	fprintf(F, "\t%smeshInstance {\n", t);
+	fprintf(F, "\t\t%smesh \"%s\"\n", t, triMesh->name.c_str());
+	fprintf(F, "\t\t%smaterial \"%s\"\n", t, material->name.c_str());
+	fprintf(F, "\t%s}\n", t);
+}
+void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
+	/*
+	node name "meshParent oNode" {	
+		sound "beek-blue_slide.it"
+		camera name "camera3" {
+			eye [0 6 10]
+			center [0 0 1]
+			vup [0 1 0]
+			fovy 0.5
+			znear 0.1
+			zfar 1000
+		}
+		meshInstance {
+			mesh "oMesh"
+			material "phongLetters"
+		}
+		node name "monkeyNode" {
+			meshInstance
+			{
+				mesh "monkeyMesh"
+				material "phongShader"
+			}
+			translation [0 0 0]
+			scale [1 1 1]	
+		}
+		node name "monkeyNode2" {
+			meshInstance
+			{
+				mesh "monkeyMesh"
+				material "phongShader"
+			}
+			translation [0 2 0]
+			scale [1 1 1]	
+		}
+		translation [-2 0 0]
+		scale [0.5 0.5 0.5]
+	}
+	*/
+	const char* t = addTabs(tabAmt);
+	fprintf(F, "%snode name \"%s\" {\n", t, name.c_str());
+	for (int i = 0; i < sounds.size(); ++i)  {
+		if (sounds[i] != nullptr && sounds[i]->getSoundSource() != 0) fprintf(F, "\t%ssound \"%s\"\n", t, sounds[i]->getSoundSource()->getName());
+#ifdef _DEBUG
+		else ERROR("\tWarning: no sound was found or getSoundSource() returned 0.");
+#endif
+	}
+	for (int i = 0; i < cameras.size(); ++i) cameras[i]->toSDL(F, tabAmt + 1);
+	for (int i = 0; i < LODstack.size(); ++i) LODstack[i]->toSDL(F, tabAmt + 1);
+	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
+	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.y);
+	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.y);
+	fprintf(F, "\t%sscale [%f %f %f]\n", t, T.scale.x, T.scale.y, T.scale.y);
+	fprintf(F, "%s}\n", t);
+
+}
+
+//-------------------------
+
+//RGBAImage * textTex;
+//GLuint textVboID;
+//GLuint textUVboID;
+//GLuint textShaderProgramHandle;
+//GLuint fontTexNumRows, fontTexNumCols;
 
 /*
 //Call with a path to a font texture.
