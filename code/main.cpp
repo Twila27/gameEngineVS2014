@@ -30,10 +30,9 @@ bool gShowPerFrameDebug = false; //F1.
 
 //For dev controls.
 bool gBuildMode = false;
+string gGlobalTmpStr("");
 
 //For controlling keyboard movement and rotation speeds.
-const float step = 0.1f;
-const float crawl = 0.01f;
 double curr_xx, prev_xx, curr_yy, prev_yy;
 
 void useConsole(void);
@@ -88,12 +87,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_RIGHT_SHIFT:
 			gActiveScene = (gActiveScene == gSceneFileNames.size() - 1) ? 0 : gActiveScene + 1;
 			gShouldSwapScene = true;
-			break;
-		case GLFW_KEY_LEFT:
-			gCameras[gActiveCamera]->translateLocal(glm::vec3(-step, 0, 0));
-			break;
-		case GLFW_KEY_RIGHT:
-			gCameras[gActiveCamera]->translateLocal(glm::vec3(step, 0, 0));
 			break;
 		case GLFW_KEY_LEFT_ALT:
 			soundEngine->setAllSoundsPaused(true);
@@ -947,7 +940,7 @@ void useConsole(void)
 		//cout << input << endl;
 
 		//Single-token commands first.
-		if (input == "b" || input == "build") gBuildMode = true;
+		if (input == "b" || input == "build") gBuildMode = !gBuildMode;
 		else if (input == "shh") soundEngine->setAllSoundsPaused(true);
 		else if (input == "noshh") soundEngine->setAllSoundsPaused(false);
 		else if (input == "q" || input == "quit" || input == "exit") break;
@@ -977,7 +970,10 @@ void useConsole(void)
 					else //Valid file on first try, so load it.
 					{
 						glfwTerminate();
-						if (flag) gSceneFileNames.push_back(token.c_str());
+						if (flag) {
+							const char* name = token.c_str();
+							gSceneFileNames.push_back(name);
+						}
 						loadScene(token.c_str());
 						return;
 					}

@@ -880,19 +880,21 @@ void Light::toSDL(FILE *F) {
 	*/
 	fprintf(F, "light {\n");
 	fprintf(F, "\tisOn %i\n", isOn);
-	fprintf(F, "\ttype %i\n", type); //Kind of messes up since it isn't a string but oh well.
 	switch (type) {
-		case LIGHT_TYPE::POINT:
+	case LIGHT_TYPE::POINT:
+			fprintf(F, "\ttype \"point\"\n");
 			fprintf(F, "\tposition [%f %f %f]\n", position.x, position.y, position.z);
 			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
 			fprintf(F, "\tattenuation [%f %f %f]\n", attenuation.x, attenuation.y, attenuation.z);
 			break;
 		case LIGHT_TYPE::DIRECTIONAL:
+			fprintf(F, "\ttype \"directional\"\n");
 			fprintf(F, "\tdirection [%f %f %f]\n", direction.x, direction.y, direction.z);
 			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
 			fprintf(F, "\tattenuation [%f %f %f]\n", attenuation.x, attenuation.y, attenuation.z);
 			break;
 		case LIGHT_TYPE::SPOT_LIGHT:
+			fprintf(F, "\ttype \"spot\"\n");
 			fprintf(F, "\tposition [%f %f %f]\n", position.x, position.y, position.z);
 			fprintf(F, "\tdirection [%f %f %f]\n", direction.x, direction.y, direction.z);
 			fprintf(F, "\tintensity [%f %f %f]\n", intensity.x, intensity.y, intensity.z);
@@ -932,13 +934,13 @@ void Sprite::toSDL(FILE *F, int tabAmt) {
 	}
 	*/
 	const char* t = addTabs(tabAmt);
-	fprintf(F, "\t%ssprite {\n", t);
-	fprintf(F, "\t\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same material for sprites.
-	fprintf(F, "\t\t%sanimDir %i\n", t, animDir);
-	fprintf(F, "\t\t%sanimRate %f\n", t, animRate);
-	fprintf(F, "\t\t%sframeWidth %i\n", t, frameWidth);
-	fprintf(F, "\t\t%sframeHeight %i\n", t, frameHeight);
-	fprintf(F, "\t%s}\n", t);
+	fprintf(F, "%ssprite {\n", t);
+	fprintf(F, "\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same material for sprites.
+	fprintf(F, "\t%sanimDir %i\n", t, animDir);
+	fprintf(F, "\t%sanimRate %f\n", t, animRate);
+	fprintf(F, "\t%sframeWidth %i\n", t, frameWidth);
+	fprintf(F, "\t%sframeHeight %i\n", t, frameHeight);
+	fprintf(F, "%s}\n", t);
 }
 void Billboard::toSDL(FILE *F, int tabAmt) {
 	/*
@@ -948,10 +950,10 @@ void Billboard::toSDL(FILE *F, int tabAmt) {
 	}
 	*/
 	const char* t = addTabs(tabAmt);
-	fprintf(F, "\t%sbillboard {\n", t);
-	fprintf(F, "\t\t%smaterial \"%s\"\n", t, material->name.c_str());
-	fprintf(F, "\t\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same materials for billboards.
-	fprintf(F, "\t%s}\n", t);
+	fprintf(F, "%sbillboard {\n", t);
+	fprintf(F, "\t%smaterial \"%s\"\n", t, material->name.c_str());
+	fprintf(F, "\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same materials for billboards.
+	fprintf(F, "%s}\n", t);
 }
 void TriMeshInstance::toSDL(FILE *F, int tabAmt) {
 	/*
@@ -961,10 +963,10 @@ void TriMeshInstance::toSDL(FILE *F, int tabAmt) {
 	}
 	*/
 	const char* t = addTabs(tabAmt);
-	fprintf(F, "\t%smeshInstance {\n", t);
-	fprintf(F, "\t\t%smesh \"%s\"\n", t, triMesh->name.c_str());
-	fprintf(F, "\t\t%smaterial \"%s\"\n", t, material->name.c_str());
-	fprintf(F, "\t%s}\n", t);
+	fprintf(F, "%smeshInstance {\n", t);
+	fprintf(F, "\t%smesh \"%s\"\n", t, triMesh->name.c_str());
+	fprintf(F, "\t%smaterial \"%s\"\n", t, material->name.c_str());
+	fprintf(F, "%s}\n", t);
 }
 void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	/*
@@ -1015,9 +1017,9 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	for (int i = 0; i < cameras.size(); ++i) cameras[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < LODstack.size(); ++i) LODstack[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
-	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.y);
-	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.y);
-	fprintf(F, "\t%sscale [%f %f %f]\n", t, T.scale.x, T.scale.y, T.scale.y);
+	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.z);
+	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.z);
+	fprintf(F, "\t%sscale [%f %f %f]\n", t, T.scale.x, T.scale.y, T.scale.z);
 	fprintf(F, "%s}\n", t);
 
 }
