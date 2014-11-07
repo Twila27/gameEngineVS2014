@@ -1,61 +1,4 @@
-#include "EngineUtil.h"
-
-GLFWwindow* gWindow = NULL;
-string gWindowTitle = "OpenGL App";
-int gWidth = 600; // window width
-int gHeight = 600; // window height
-int gSPP = 16; // samples per pixel
-glm::vec4 backgroundColor;
-
-const double FIXED_DT = 0.01;
-
-ISoundEngine* soundEngine = NULL;
-ISound* gBackgroundMusic = NULL;
-
-//Reason not using Scene is to preserve hot-updating scene files.
-map<string, TriMesh*> gMeshes;
-map<string, Material*> gMaterials;
-//vector<TriMeshInstance*> gMeshInstances;
-map<string, SceneGraphNode*> gNodes;
-map<string, Script*> gScripts;
-vector<Camera*> gCameras;
-vector<const char*> gSceneFileNames;
-
-//These will not change until their keys are pressed.
-unsigned int gActiveCamera = 0; //Ctrl.
-unsigned int gActiveScene = 0; //Shift.
-string gActiveSceneName; //Used in console, updated in loadScene().
-bool gShouldSwapScene = false;
-bool gShowPerFrameDebug = false; //F1.
-
-//For dev controls.
-bool gBuildMode = false;
-string gGlobalTmpStr("");
-void useConsole(void);
-void saveWorldSettings(FILE *F) {
-	/* worldSettings windowTitle "Sprint 2: Simple Scene Graph (Parent-Child Transforms)" {
-		width 800
-		height 600
-		spp 4
-		backgroundColor [0.5 0.5 0.8]
-		backgroundMusic "aryx.s3m"
-		debugFont "ExportedFont.png"
-		fontTexNumRows 8
-		fontTexNumCols 8
-	}
-	*/
-	fprintf(F, "worldSettings windowTitle \"%s\" {\n", gWindowTitle.c_str());
-	fprintf(F, "\twidth %i\n", gWidth);
-	fprintf(F, "\theight %i\n", gHeight);
-	fprintf(F, "\tspp %i\n", gSPP);
-	fprintf(F, "\tbackgroundColor [%f %f %f]\n", backgroundColor.r, backgroundColor.g, backgroundColor.b);
-	if (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0) fprintf(F, "\tbackgroundMusic \"%s\"\n", gBackgroundMusic->getSoundSource()->getName());
-#ifdef _DEBUG
-	else ERROR("\tWarning: no background music was found or getSoundSource() returned 0.");
-	cout << "\tSkipping debug font settings.\n";
-#endif
-	fprintf(F, "}\n");
-}
+#include "SceneState.h"
 
 //Keyboard input and camera manipulation.
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -117,6 +60,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		printf("\n%c\n", (char)key);
 	}
 }
+const double FIXED_DT = 0.01; //Time step for things like sprite tick.
 float tAmt = 0.025f;
 const float rAmt = 0.01f;
 const float minSpeed = 0.025f;
@@ -602,7 +546,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 	cin >> renderThreshold;
 	do {
 		cout << "\tAdd sprite, billboard, or mesh instance (Y/N)? "; cin >> tmp; if (tmp == "N" || tmp == "n") break;
-		cout << "\tTip: first addition is seen when farthest away.\n";
+		cout << "\tTip: first addition is seen when closest to node.\n";
 		cout << "\tPlease type s, b, mi for which drawable to add: "; cin >> tmp;
 		if (tmp == "s") {
 			Sprite *sprite = new Sprite();

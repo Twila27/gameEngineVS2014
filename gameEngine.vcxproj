@@ -85,11 +85,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.cpp" />
+    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.cpp" />
     <ClCompile Include="code\EngineUtil.cpp" />
     <ClCompile Include="code\lodepng.cpp" />
     <ClCompile Include="code\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.h" />
+    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.h" />
     <ClInclude Include="code\EngineUtil.h" />
     <ClInclude Include="code\lodepng.h" />
   </ItemGroup>

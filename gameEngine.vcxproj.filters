@@ -24,12 +24,24 @@
     <ClCompile Include="code\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="code\EngineUtil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="code\lodepng.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

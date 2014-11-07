@@ -1,3 +1,6 @@
+
+#pragma once
+
 // Prevent visual studio warnings
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -37,7 +40,7 @@ void ERROR(const string &msg, bool doExit = true);
 double TIME(void);
 void SLEEP(int millis);
 
-//For controlling the number of time steps we take between update() or render() calls.
+//For controlling the number of time steps we take between update() or render() calls. Used by Sprite's tick.
 extern const double FIXED_DT; //Represents the non-integral amount of frames between last and current game loop. Weak to pausing.
 
 template<class T> class NameIdVal //Used for Colors in Material right now.
@@ -279,9 +282,15 @@ public:
 	void toSDL(FILE *F, int tabAmt = 0) override;
 };
 
+
+class SceneGraphNode; //Because a Script references one.
 class Script {
 public:
 	string name;
+	SceneGraphNode* node; //The node this script is attached to.
+	Script(SceneGraphNode* n) : node(n) {}
+	virtual void update(float dt) = 0;
+	virtual void setProperty(const string& propertyName, const string& propertyVal);
 };
 
 class SceneGraphNode {
