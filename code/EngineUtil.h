@@ -289,8 +289,10 @@ public:
 	string name;
 	SceneGraphNode* node; //The node this script is attached to.
 	Script(SceneGraphNode* n) : node(n) {}
-	virtual void update(float dt) = 0;
-	virtual void setProperty(const string& propertyName, const string& propertyVal);
+	virtual Script* clone(SceneGraphNode *n) = 0;
+	virtual void initProperty(FILE *F, const string& propertyName, const string& propertyVal) = 0; 
+	virtual void setProperty(const string& propertyName, const string& propertyVal) = 0;
+	virtual void update(Camera& cam, double dt) = 0;
 };
 
 class SceneGraphNode {
@@ -320,7 +322,7 @@ public:
 	SceneGraphNode(void);
 	~SceneGraphNode(void);
 	void draw(Camera &camera);
-	void update(Camera &camera);
+	void update(Camera &camera, double dt);
 	void toSDL(FILE *F, int tabAmt = 0);
 };
 

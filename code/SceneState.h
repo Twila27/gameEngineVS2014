@@ -18,7 +18,8 @@ static map<string, Material*> gMaterials;
 static map<string, SceneGraphNode*> gNodes;
 static map<string, Script*> gScripts;
 static vector<Camera*> gCameras;
-static vector<const char*> gSceneFileNames;
+static vector<string> gSceneFileNames;
+static vector<string> gLibraries;
 
 //These will not change until their keys are pressed.
 static unsigned int gActiveCamera = 0; //Ctrl.

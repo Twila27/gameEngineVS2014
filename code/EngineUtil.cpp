@@ -752,15 +752,16 @@ SceneGraphNode::~SceneGraphNode(void) {
 	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
 	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
 	for (auto it = sounds.begin(); it != sounds.end(); ++it) if (*it != nullptr) (*it)->drop();
+	for (auto it = scripts.begin(); it != scripts.end(); ++it) delete *it;
 }
-void SceneGraphNode::update(Camera &camera) 
+void SceneGraphNode::update(Camera &camera, double dt) 
 {
 	//Update transform for self, if there is no parent to update us for ourselves.
 	if (parent == nullptr) T.refreshTransform();
 
 	//Update children.
 	for (int i = 0; i < (int)children.size(); ++i) {
-		children[i]->update(camera); //Won't refresh self thanks to above line.
+		children[i]->update(camera, dt); //Won't refresh self thanks to above line.
 		if (children[i]->activeLOD != -1 && children[i]->LODstack[children[i]->activeLOD]->type != Drawable::TRIMESHINSTANCE)
 			children[i]->T.refreshTransform(T.transform, T.translation, T.scale, false);
 		else children[i]->T.refreshTransform(T.transform);
@@ -781,6 +782,9 @@ void SceneGraphNode::update(Camera &camera)
 		currLOD++;
 	}
 	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
+
+	//Run any scripts attached to the node.
+	for (int i = 0; i < (int)scripts.size(); ++i) scripts[i]->update(camera, dt);
 }
 void SceneGraphNode::draw(Camera &camera) {
 

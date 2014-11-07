@@ -1,4 +1,5 @@
 #include "SceneState.h"
+#include "Scripts.h"
 
 //Keyboard input and camera manipulation.
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -383,7 +384,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 		else if (token == "script") {
 			string scriptName;
 			getToken(F, scriptName, ONE_TOKENS);
-			if (gNodes.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]);
+			if (gScripts.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]->clone(n));
 			else ERROR("Unable to locate gScripts[" + scriptName + "], check scene and library files?", false);
 		}
 		else if (token == "sound") {
@@ -416,9 +417,9 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 	return n;
 }
 void loadLibrary(const char *libFile) {
-	//No unloading needed.
-	//Add path used to EngineUtil PATH variable.
+	//No unloading needed. Add path used to EngineUtil PATH variable.
 	string lib = libFile;
+	gLibraries.push_back(lib);
 	int separatorIndex = lib.find_last_of("/");
 	if (separatorIndex < 0)	separatorIndex = lib.find_last_of("\\");
 	if (separatorIndex > 0)	addToPath(lib.substr(0, separatorIndex + 1));
@@ -436,6 +437,7 @@ void loadLibrary(const char *libFile) {
 void loadScene(const char *sceneFile)
 {
 	//Unload the previous scene if there was one.
+	if (!gLibraries.empty()) gLibraries.clear();
 	if (!gMeshes.empty()) gMeshes.clear();
 	if (!gNodes.empty()) gNodes.clear();
 	if (!gCameras.empty()) gCameras.clear();
@@ -691,7 +693,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 
 	return gNodes[nodeName];
 }
-void update(void)
+void update(double dt)
 {
 	gCameras[gActiveCamera]->refreshTransform((float)gWidth, (float)gHeight);
 
@@ -701,10 +703,10 @@ void update(void)
 		soundEngine->stopAllSounds();
 		glfwTerminate();
 		cout << "\n================================================================================\n";
-		loadScene(gSceneFileNames[gActiveScene]);
+		loadScene(gSceneFileNames[gActiveScene].c_str());
 	}
 
-	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera]);
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
 
 	//Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
 	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
@@ -775,6 +777,9 @@ int main(int numArgs, char **args)
 	soundEngine->setListenerPosition(vec3df(0, 0, 0), vec3df(0, 0, 1));
 	soundEngine->setSoundVolume(0.25f); // master volume control
 
+	//Ready script pool.
+	gScripts["moverScript"] = new MoverScript(nullptr);
+
 	// Play 3D sound
 	//string soundFileName;
 	//ISound* music = soundEngine->play3D(soundFileName.c_str(), vec3df(0, 0, 10), true); // position and looping
@@ -786,7 +791,7 @@ int main(int numArgs, char **args)
 	if (gSceneFileNames.size() == 0) ERROR("Failed to supply any scene file names, exiting engine.");
 
 	// Load first scene.
-	loadScene(gSceneFileNames[0]);
+	loadScene(gSceneFileNames[0].c_str());
 
 	// start time (used to time framerate)
 	double newTime = 0;
@@ -807,7 +812,7 @@ int main(int numArgs, char **args)
 
 		// update wrapped in the GafferOnPhysics final dt loop trick.
 		while (accumulator >= FIXED_DT) {
-			update();
+			update(FIXED_DT);
 			accumulator -= FIXED_DT;
 			runningTime += FIXED_DT;
 		}	
@@ -880,7 +885,6 @@ void useConsole(void)
 					{
 						cout << "\tAppending to gSceneFileNames, updating gActiveScene...\n";
 						flag = true; //Not pushing it back here because it may be a bad name.
-						gActiveScene = gSceneFileNames.size() - 1;
 						iss >> token; //Catch token up to the non -a case.
 					}
 					if (token == "load" || token == "-a")
@@ -895,8 +899,8 @@ void useConsole(void)
 					{
 						glfwTerminate();
 						if (flag) {
-							static const char* name = token.c_str();
-							gSceneFileNames.push_back(name);
+							gSceneFileNames.push_back(token);
+							gActiveScene = gSceneFileNames.size() - 1; //Else gActiveScene stays on the scene before loading.
 						}
 						loadScene(token.c_str());
 						return;
