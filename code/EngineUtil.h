@@ -294,7 +294,7 @@ public:
 	virtual Script* clone(SceneGraphNode *n) = 0;
 	virtual void initProperty(FILE *F, const string& propertyName, const string& propertyVal) = 0; 
 	virtual bool setProperty(const string& propertyName, const string& propertyVal) = 0;
-	virtual void update(Camera& cam, double dt) = 0;
+	virtual void update(Camera& cam, float dt) = 0;
 };
 
 class SceneGraphNode {

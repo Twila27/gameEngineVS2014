@@ -9,5 +9,5 @@ public:
 	~MoverScript(); //In case there are any properties above that are pointers we need to delete.
 	void initProperty(FILE *F, const string& propertyName, const string& propertyVal) override;
 	bool setProperty(const string& propertyName, const string& propertyVal) override;
-	void update(Camera& cam, double dt) override;
+	void update(Camera& cam, float dt) override;
 };

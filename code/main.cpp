@@ -442,10 +442,27 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			n->cameras.back()->inNode = true;
 		}
 		else if (token == "script") {
-			string scriptName;
-			getToken(F, scriptName, ONE_TOKENS);
-			if (gScripts.count(scriptName) > 0) n->scripts.push_back(gScripts[scriptName]->clone(n));
-			else ERROR("Unable to locate gScripts[" + scriptName + "], check scene and library files?", false);
+			while (getToken(F, token, ONE_TOKENS)) {
+				if (token == "}") break;
+				else if (token == "type") {
+					getToken(F, token, ONE_TOKENS);
+					if (gScripts.count(token) > 0) n->scripts.push_back(gScripts[token]->clone(n));
+					else ERROR("Unable to locate gScripts[" + token + "], check scene and library files?", false);
+				}
+				else { //Assumes anything between { and } is a property key-value pair. Type is known on other side from property name.
+					string propertyName, propertyVal;
+					getToken(F, propertyName, ONE_TOKENS);
+					getToken(F, propertyVal, ONE_TOKENS); //Need to know whether [vector] or scalar valued.
+					if (propertyVal == "[") {
+						while (propertyVal.find(']') == string::npos) { //Until we find the closing bracket.
+							getToken(F, token, ONE_TOKENS);
+							propertyVal += token;
+						}
+					} //Else we have a scalar in the string without need for further processing.
+					if (!n->scripts.back()->setProperty(propertyName, propertyVal))
+						ERROR("Failed to set property in script.", false);
+				}
+			}
 		}
 		else if (token == "sound") {
 			string fileName, fullFileName;
@@ -1627,7 +1644,7 @@ void useConsole(void)
 								cout << "\tPlease enter the value to set it to: ";
 								cin >> propVal;
 								if (gNodes[token]->scripts[scriptNum]->setProperty(name, propVal)) cout << "\tSuccessfully set in script.\n";
-								else cout << "\tFailed to set property in script.";
+								else cout << "\tFailed to set property in script.\n";
 								break;
 							case 5:
 								cout << "\tTranslation.x (Curr: " << gNodes[token]->T.translation.x << "): "; cin >> gNodes[token]->T.translation.x;
