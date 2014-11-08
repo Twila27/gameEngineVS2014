@@ -80,9 +80,68 @@ void keyboardCameraController(Camera &cam) {
 	if (glfwGetKey(gWindow, GLFW_KEY_DOWN)) cam.rotateLocal(glm::vec3(1, 0, 0), -rAmt);
 	cam.refreshTransform((float)gWidth, (float)gHeight);
 }
+float tBuildAmt = 0.025f;
+float rBuildAmt = 0.001f;
+const float minRotBuildAmt = 0.001f;
+const float minTranBuildAmt = 0.025f;
+void keyboardBuildModeController() {
+	if (glfwGetKey(gWindow, 'A')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(-tBuildAmt, 0, 0));
+	if (glfwGetKey(gWindow, 'D')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(tBuildAmt, 0, 0));
+	if (glfwGetKey(gWindow, 'W')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(0, 0, -tBuildAmt));
+	if (glfwGetKey(gWindow, 'S')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(0, 0, tBuildAmt));
+	if (glfwGetKey(gWindow, 'Q')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(0, -tBuildAmt, 0));
+	if (glfwGetKey(gWindow, 'E')) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addTranslation(glm::vec3(0, tBuildAmt, 0));
+	if (glfwGetKey(gWindow, '=')) { tBuildAmt += minTranBuildAmt; rBuildAmt += minRotBuildAmt; }
+	if (glfwGetKey(gWindow, '-')) {
+		tBuildAmt -= (tBuildAmt - minTranBuildAmt <= minTranBuildAmt ? 0 : minTranBuildAmt);
+		rBuildAmt -= (rBuildAmt - minRotBuildAmt <= minRotBuildAmt ? 0 : minRotBuildAmt);
+	}
+	if (glfwGetKey(gWindow, 'X')) {
+		if (glfwGetKey(gWindow, GLFW_KEY_LEFT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(1, 0, 0), rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_RIGHT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(1, 0, 0), -rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_UP)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(rBuildAmt, 0, 0));
+		if (glfwGetKey(gWindow, GLFW_KEY_DOWN)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(-rBuildAmt, 0, 0));
+	}
+	if (glfwGetKey(gWindow, 'Y')) {
+		if (glfwGetKey(gWindow, GLFW_KEY_LEFT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(0, 1, 0), rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_RIGHT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(0, 1, 0), -rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_UP)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(0, rBuildAmt, 0));
+		if (glfwGetKey(gWindow, GLFW_KEY_DOWN)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(0, -rBuildAmt, 0));
+	}
+	if (glfwGetKey(gWindow, 'Z')) {
+		if (glfwGetKey(gWindow, GLFW_KEY_LEFT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(0, 0, 1), rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_RIGHT)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addRotation(glm::vec3(0, 0, 1), -rBuildAmt);
+		if (glfwGetKey(gWindow, GLFW_KEY_UP)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(0, 0, rBuildAmt));
+		if (glfwGetKey(gWindow, GLFW_KEY_DOWN)) for (auto it = gSelected.begin(); it != gSelected.end(); ++it) it->second->addScale(glm::vec3(0, 0, -rBuildAmt));
+	}
+}
 
 //Parsing.
 string ONE_TOKENS = "{}[]()<>+-*/,;";
+void saveWorldSettings(FILE *F) {
+	/* worldSettings windowTitle "Sprint 2: Simple Scene Graph (Parent-Child Transforms)" {
+	width 800
+	height 600
+	spp 4
+	backgroundColor [0.5 0.5 0.8]
+	backgroundMusic "aryx.s3m"
+	debugFont "ExportedFont.png"
+	fontTexNumRows 8
+	fontTexNumCols 8
+	}
+	*/
+	fprintf(F, "worldSettings windowTitle \"%s\" {\n", gWindowTitle.c_str());
+	fprintf(F, "\twidth %i\n", gWidth);
+	fprintf(F, "\theight %i\n", gHeight);
+	fprintf(F, "\tspp %i\n", gSPP);
+	fprintf(F, "\tbackgroundColor [%f %f %f]\n", backgroundColor.r, backgroundColor.g, backgroundColor.b);
+	if (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0) fprintf(F, "\tbackgroundMusic \"%s\"\n", gBackgroundMusic->getSoundSource()->getName());
+#ifdef _DEBUG
+	else ERROR("\tWarning: no background music was found or getSoundSource() returned 0.", false);
+	cout << "\tSkipping debug font settings.\n";
+#endif
+	fprintf(F, "}\n");
+}
 void loadWorldSettings(FILE *F)
 {
 	string token, t;
@@ -153,9 +212,10 @@ void loadMaterial(FILE *F, bool inLibrary = false)
 			fragmentShader = loadShader(m->fragmentShaderName.c_str(), GL_FRAGMENT_SHADER);
 		}
 		else if (token == "color") {
-			m->colors.push_back(new NameIdVal<glm::vec4>());
-			getToken(F, m->colors.back()->name, ONE_TOKENS); //Store uniform name in NameIdVal<>.
-			getFloats(F, &m->colors.back()->val[0], 4);
+			NameIdVal<glm::vec4> * color = new NameIdVal<glm::vec4>();
+			getToken(F, color->name, ONE_TOKENS); //Store uniform name in NameIdVal<>.
+			if (color->name == "uDiffuseColor")	getFloats(F, &m->colors[0]->val[0], 4); //As per ctor.
+			else { getFloats(F, &color->val[0], 4);	m->colors.push_back(color); }
 		}
 		else if (token == "texture") {
 			m->textures.push_back(new RGBAImage());
@@ -394,6 +454,11 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			n->sounds.push_back(soundEngine->play2D(fullFileName.c_str(), false, false, true));
 			n->sounds.back()->stop();
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
+		}
+		else if (token == "isRendered") {
+			int tmpBool;
+			getInts(F, &tmpBool, 1);
+			n->isRendered = (bool)tmpBool;
 		}
 	}
 
@@ -820,7 +885,8 @@ int main(int numArgs, char **args)
 
 		// handle input
 		glfwPollEvents();
-		keyboardCameraController(*gCameras[gActiveCamera]);
+		if (gBuildMode) keyboardBuildModeController();
+		else keyboardCameraController(*gCameras[gActiveCamera]);
 		if (glfwWindowShouldClose(gWindow) != 0) break;
 
 		if (gShowPerFrameDebug) {
@@ -862,7 +928,7 @@ void useConsole(void)
 	cout << "\n================================================================================";
 	cout << "\t\t\t\tEntering Console";
 	cout << "\n================================================================================\n";
-	cout << "Commands: \n\tshh, noshh \n\tq, quit, exit \n\tb, build \n\tcreate \n\tload \n\tsave \n\tprint\n";
+	cout << "Commands: \n\tshh, noshh \n\tq, quit, exit \n\tb, build \n\tcreate \n\tload \n\tsave \n\tprint \n\tselect \n\tdeselect \n\tset\n";
 	do {
 		flag = false;
 		getline(cin, input);
@@ -930,6 +996,8 @@ void useConsole(void)
 					saveWorldSettings(F); fprintf(F, "\n"); cout << "\tFinished saving worldSettings.\n";
 					for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) if (!(*it)->inNode) (*it)->toSDL(F);	
 						fprintf(F, "\n"); cout << "\tFinished saving cameras.\n";
+					for (auto it = gLibraries.cbegin(); it != gLibraries.cend(); ++it) fprintf(F, "library \"%s\"\n", (*it).c_str());
+						fprintf(F, "\n"); cout << "\tFinished listing libraries.\n";
 					for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) if (!it->second->inLibrary) it->second->toSDL(F); 
 						fprintf(F, "\n"); cout << "\tFinished saving meshes.\n";
 					for (int i = 0; i < gNumLights; ++i) gLights[i].toSDL(F); 
@@ -1182,25 +1250,76 @@ void useConsole(void)
 					}
 					cout << "\tRemember to follow up with \'save\' to write to the file for non-scenes.\n";
 				}
+				else if (token == "delete") {
+					iss >> token;
+					if (token == "delete") token == "";
+					else if (token == "scene") {
+						iss >> token;
+						if (token == "scene") token = "";
+						for (auto it = gSceneFileNames.begin(); it != gSceneFileNames.end(); ++it)
+							if (*it == token) gSceneFileNames.erase(it);
+					}
+					else if (token == "camera") {
+						iss >> token;
+						if (token == "camera") token = "";
+						for (auto it = gCameras.begin(); it != gCameras.end(); ++it)
+							if ((*it)->name == token) {
+								delete *it;
+								gCameras.erase(it);
+							}
+					}
+					else if (token == "material") {
+						iss >> token;
+						if (token == "material") token = "";
+						for (auto it = gMaterials.begin(); it != gMaterials.end(); ++it)
+							if (it->first == token) {
+								delete it->second;
+								gMaterials.erase(it);
+							}
+					}
+					else if (token == "mesh") {
+						iss >> token;
+						if (token == "mesh") token = "";
+						for (auto it = gMeshes.begin(); it != gMeshes.end(); ++it)
+							if (it->first == token) {
+								delete it->second;
+								gMeshes.erase(it);
+							}
+					}
+					else if (token == "node") {
+						iss >> token;
+						if (token == "node") token = "";
+						for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+							if (it->first == token) {
+								delete it->second;
+								gNodes.erase(it);
+							}	
+					}
+					else if (token == "script") {
+						iss >> token;
+						if (token == "script") token = "";
+						for (auto it = gScripts.begin(); it != gScripts.end(); ++it)
+						if (it->first == token) {
+							delete it->second;
+							gScripts.erase(it);
+						}
+					}
+					if (token == "") {
+						cout << "\tValid Commands:\n";
+						cout << "\tdelete scene sceneToRemove.scene\n";
+						cout << "\tdelete camera cameraNameToRemove\n";
+						cout << "\tdelete material materialNameToRemove\n";
+						cout << "\tdelete mesh meshNameToRemove\n";
+						cout << "\tdelete node nodeNameToRemove\n";
+						cout << "\tdelete script scriptNameToRemove\n";
+						break;
+					}
+				}
 				else if (token == "print")
 				{
 					iss >> token;
 					if (token == "cameras") for (auto it = gCameras.cbegin(); it != gCameras.cend(); ++it) cout << '\t' << (*it)->name << endl;
-					else if (token == "lights")
-					{
-						for (int i = 0; i < gNumLights; ++i)
-						{
-							switch (gLights[i].type)
-							{
-							case Light::LIGHT_TYPE::POINT: cout << "\tpoint light\n"; break;
-							case Light::LIGHT_TYPE::DIRECTIONAL: cout << "\tdirectional light\n"; break;
-							case Light::LIGHT_TYPE::SPOT_LIGHT: cout << "\tspot light\n"; break;
-							case Light::LIGHT_TYPE::AMBIENT: cout << "\tambient light\n"; break;
-							case Light::LIGHT_TYPE::HEAD_LIGHT: cout << "\thead light\n"; break;
-							case Light::LIGHT_TYPE::RIM_LIGHT: cout << "\trim light\n"; break;
-							}
-						}
-					}
+					else if (token == "lights") for (int i = 0; i < gNumLights; ++i) { cout << '\t'; gLights[i].typeToString(); }
 					else if (token == "materials") for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "meshes") for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "nodes") for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) cout << '\t' << it->second->name << endl;
@@ -1208,6 +1327,329 @@ void useConsole(void)
 					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "paths") for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
 					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n\tprint paths\n";
+				}
+				else if (token == "select") {
+					iss >> token;
+					if (token == "select") token = "";
+					else if (token == "all") 
+						for (auto it = gNodes.begin(); it != gNodes.end(); ++it) {
+							gSelected[token] = it->second;
+							for (int j = 0; j < it->second->LODstack.size(); ++j)
+							for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
+								if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+									{
+										it->second->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
+										it->second->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
+										it->second->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
+									}
+						}
+					else {
+						gSelected[token] = gNodes[token];
+						for (int j = 0; j < gNodes[token]->LODstack.size(); ++j)
+						for (int k = 0; k < gNodes[token]->LODstack[j]->getMaterial()->colors.size(); ++k)
+						if (gNodes[token]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+						{
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
+						}
+
+						for (int i = 0; i < gNodes[token]->children.size(); ++i) { //Add any children.
+							gSelected[gNodes[token]->children[i]->name] = gNodes[token]->children[i];
+							for (int j = 0; j < gNodes[token]->children[i]->LODstack.size(); ++j)
+							for (int k = 0; k < gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors.size(); ++k)
+							if (gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+							{
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
+							}
+						}
+
+					}
+					if (token == "") {
+						cout << "\tValid Commands:\n";
+						cout << "\tselect all\n";
+						cout << "\tselect nodeName\n";
+						break;
+					}
+				}
+				else if (token == "deselect") {
+					iss >> token;
+					if (token == "deselect") token = "";
+					else if (token == "all") {
+						gSelected.clear();
+						for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+						for (int j = 0; j < it->second->LODstack.size(); ++j)
+						for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
+						if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+						{
+							it->second->LODstack[j]->getMaterial()->colors[k]->val.r -= 1.0f;
+							it->second->LODstack[j]->getMaterial()->colors[k]->val.g -= 1.0f;
+							it->second->LODstack[j]->getMaterial()->colors[k]->val.b -= 1.0f;
+						}
+					}
+					else {
+						gSelected.erase(token); //Removes the pointer to our object, doesn't destroy the object.
+						for (int j = 0; j < gNodes[token]->LODstack.size(); ++j)
+						for (int k = 0; k < gNodes[token]->LODstack[j]->getMaterial()->colors.size(); ++k)
+						if (gNodes[token]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+						{
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.r -= 1.0f;
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.g -= 1.0f;
+							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.b -= 1.0f;
+						}
+
+						for (int i = 0; i < gNodes[token]->children.size(); ++i) { //Remove any children.
+							if (gSelected.count(gNodes[token]->children[i]->name) > 0) gSelected.erase(gNodes[token]->children[i]->name);
+							for (int j = 0; j < gNodes[token]->children[i]->LODstack.size(); ++j)
+							for (int k = 0; k < gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors.size(); ++k)
+							if (gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+							{
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.r -= 1.0f;
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.g -= 1.0f;
+								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.b -= 1.0f;
+							}
+						}
+					}
+					if (token == "") {
+						cout << "\tValid Commands:\n";
+						cout << "\tdeselect all\n";
+						cout << "\tdeselect nodeName\n";
+						break;
+					}
+				}
+				else if (token == "set") {
+					iss >> token;
+					if (token == "scene") {
+						cout << "\tPlease enter a property to set from the below:\n";
+						cout << "\t(1) Window Title (2) Window Width (3) Window Height \n\
+								 \t(4) Samples per Pixel (5) Background Color (6) Background Music\n";
+						int propertyNum;
+						cin >> propertyNum;
+						switch (propertyNum) {
+							case 1:
+								cout << "\tTitle (Curr: " << gWindowTitle << "): "; cin >> gWindowTitle;
+								break;
+							case 2:
+								cout << "\tWidth (Curr: " << gWidth << "): "; cin >> gWidth;
+								break;
+							case 3:
+								cout << "\tHeight (Curr: " << gHeight << "): "; cin >> gHeight;
+								break;
+							case 4:
+								cout << "\tSPP (Curr: " << gSPP << "): "; cin >> gSPP;
+								break;
+							case 5:
+								cout << "\tColor.r (Curr: " << backgroundColor.r << "): "; cin >> backgroundColor.r;
+								cout << "\tColor.g (Curr: " << backgroundColor.g << "): "; cin >> backgroundColor.g;
+								cout << "\tColor.b (Curr: " << backgroundColor.b << "): "; cin >> backgroundColor.b;
+								break;
+							case 6:
+								cout << "\tFilename (Curr: " << (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0 ? gBackgroundMusic->getSoundSource()->getName() : "None") << "): ";
+								string file, fullFile;
+								cin >> file;
+								getFullFileName(file, fullFile);
+								gBackgroundMusic = soundEngine->play2D(fullFile.c_str(), true, false, true, irrklang::ESM_AUTO_DETECT, true);
+								break;
+						}
+					}
+					else if (token == "camera") {
+						cout << "\tEnter a number for a camera name from below:\n";
+						for (int i = 0; i < gCameras.size(); ++i) 
+							cout << '\t' << i << ": " << gCameras[i]->name << endl;
+						int cameraNum;
+						cin >> cameraNum;
+
+						cout << "\tPlease enter a property to set from the below:\n";
+						cout << "\t(1) Eye (2) Center (3) vUp (4) verticalFoV (5) zNear (6) zFar\n";
+						int propertyNum;
+						cin >> propertyNum;
+						switch (propertyNum) {
+							case 1:
+								cout << "\tEye.x (Curr: " << gCameras[cameraNum]->eye.x << "): "; cin >> gCameras[cameraNum]->eye.x;
+								cout << "\tEye.y (Curr: " << gCameras[cameraNum]->eye.y << "): "; cin >> gCameras[cameraNum]->eye.y;
+								cout << "\tEye.z (Curr: " << gCameras[cameraNum]->eye.z << "): "; cin >> gCameras[cameraNum]->eye.z;
+								break;
+							case 2:
+								cout << "\tCenter.x (Curr: " << gCameras[cameraNum]->center.x << "): "; cin >> gCameras[cameraNum]->center.x;
+								cout << "\tCenter.y (Curr: " << gCameras[cameraNum]->center.y << "): "; cin >> gCameras[cameraNum]->center.y;
+								cout << "\tCenter.z (Curr: " << gCameras[cameraNum]->center.z << "): "; cin >> gCameras[cameraNum]->center.z;
+								break;
+							case 3:
+								cout << "\tvUp.x (Curr: " << gCameras[cameraNum]->vup.x << "): "; cin >> gCameras[cameraNum]->vup.x;
+								cout << "\tvUp.y (Curr: " << gCameras[cameraNum]->vup.y << "): "; cin >> gCameras[cameraNum]->vup.y;
+								cout << "\tvUp.z (Curr: " << gCameras[cameraNum]->vup.z << "): "; cin >> gCameras[cameraNum]->vup.z;
+								break;
+							case 4:
+								cout << "\tEnter a float value: (Curr: " << gCameras[cameraNum]->fovy << "): ";
+								cin >> gCameras[cameraNum]->fovy;
+								break;
+							case 5:
+								cout << "\tEnter a float value: (Curr: " << gCameras[cameraNum]->znear << "): ";
+								cin >> gCameras[cameraNum]->znear;
+								break;
+							case 6:
+								cout << "\tEnter a float value: (Curr: " << gCameras[cameraNum]->zfar << "): ";
+								cin >> gCameras[cameraNum]->zfar;
+								break;
+						}
+					}
+					else if (token == "light") {
+						cout << "\tPlease pick a light number from below:\n";
+						for (int i = 0; i < gNumLights; ++i) {
+							cout << '\t' << i << " - Type: ";
+							gLights[i].typeToString();
+							cout << endl;
+						}
+						int lightNum;
+						cin >> lightNum;
+						while (lightNum >= gNumLights) {
+							cout << "\tIt needs to be less than gNumlights (" << gNumLights << "): ";
+							cin >> lightNum;
+						}
+
+						cout << "\tPlease enter a property to set from the below:\n";
+						cout << "\t(1) Type (2) Alpha (3) Theta (4) isOn \n\t(5) Intensity (6) Position (7) Direction (8) Attenuation\n";
+						int propertyNum;
+						cin >> propertyNum;
+						switch (propertyNum) {
+							case 1:
+								cout << "\tEnter a type from below choices:\n";
+								cout << "\t(1) Point (2) Directional (3) Spot\n";
+								cin >> propertyNum;
+								gLights[lightNum].type = (Light::LIGHT_TYPE)propertyNum;
+								break;
+							case 2: 
+								cout << "\tEnter a float value: (Curr: " << gLights[lightNum].alpha << "): ";
+								cin >> gLights[lightNum].alpha;
+								break;
+							case 3:
+								cout << "\tEnter a float value: (Curr: " << gLights[lightNum].theta << "): ";
+								cin >> gLights[lightNum].theta; 
+								break;
+							case 4:
+								cout << "\tEnter 0 for off or 1 for on: ";
+								cin >> gLights[lightNum].isOn;
+								break;
+							case 5:
+								cout << "\tIntensity.r (Curr: " << gLights[lightNum].intensity.x << "): "; cin >> gLights[lightNum].intensity.x;
+								cout << "\tIntensity.g (Curr: " << gLights[lightNum].intensity.y << "): "; cin >> gLights[lightNum].intensity.y;
+								cout << "\tIntensity.a (Curr: " << gLights[lightNum].intensity.z << "): "; cin >> gLights[lightNum].intensity.z;
+								break;
+							case 6:
+								cout << "\tPosition.x (Curr: " << gLights[lightNum].position.x << "): "; cin >> gLights[lightNum].position.x;
+								cout << "\tPosition.y (Curr: " << gLights[lightNum].position.y << "): "; cin >> gLights[lightNum].position.y;
+								cout << "\tPosition.z (Curr: " << gLights[lightNum].position.z << "): "; cin >> gLights[lightNum].position.z;
+								break;
+							case 7:
+								cout << "\tDirection.x (Curr: " << gLights[lightNum].direction.x << "): "; cin >> gLights[lightNum].direction.x;
+								cout << "\tDirection.y (Curr: " << gLights[lightNum].direction.y << "): "; cin >> gLights[lightNum].direction.y;
+								cout << "\tDirection.z (Curr: " << gLights[lightNum].direction.z << "): "; cin >> gLights[lightNum].direction.z;
+								break;
+							case 8:
+								cout << "\tQuadratic (Curr: " << gLights[lightNum].attenuation.x << "): "; cin >> gLights[lightNum].attenuation.x;
+								cout << "\tLinear (Curr: " << gLights[lightNum].attenuation.y << "): "; cin >> gLights[lightNum].attenuation.y;
+								cout << "\tConstant (Curr: " << gLights[lightNum].attenuation.z << "): "; cin >> gLights[lightNum].attenuation.z;
+								break;
+						}
+					}
+					else if (token == "material") {
+						cout << "\tEnter a material name from the below:\n";
+						for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it)
+							cout << '\t' << it->second->name << endl;
+						cin >> token;
+						while (gMaterials.count(token) == 0) {
+							cout << "\tFailed to find material, try again: ";
+							cin >> token;
+						}
+
+						cout << "\tEnter a number for a color from the below:\n";
+						for (int i = 0; i < gMaterials[token]->colors.size(); ++i)
+							cout << '\t' << i << ": " << gMaterials[token]->colors[i]->name << endl;
+						int colorNum;
+						cin >> colorNum;
+						cout << "\tColor.r (Curr: " << gMaterials[token]->colors[colorNum]->val.r << "): "; cin >> gMaterials[token]->colors[colorNum]->val.r;
+						cout << "\tColor.g (Curr: " << gMaterials[token]->colors[colorNum]->val.g << "): "; cin >> gMaterials[token]->colors[colorNum]->val.g;
+						cout << "\tColor.b (Curr: " << gMaterials[token]->colors[colorNum]->val.b << "): "; cin >> gMaterials[token]->colors[colorNum]->val.b;
+						cout << "\tColor.a (Curr: " << gMaterials[token]->colors[colorNum]->val.a << "): "; cin >> gMaterials[token]->colors[colorNum]->val.a;
+					}
+					else if (token == "node") {
+						cout << "\tEnter a node name from the below:\n";
+						for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it)
+							cout << '\t' << it->second->name << endl;
+						cin >> token;
+						while (gNodes.count(token) == 0) {
+							cout << "\tFailed to find node, try again: ";
+							cin >> token;
+						}
+
+						cout << "\tPlease enter a property to set from the below:\n";
+						cout << "\t(1) isRendered (2) Active Mesh (3) Active Material \n\t(4) Script Property (5) Translation (6) Rotation (7) Scale\n";
+						int propertyNum;
+						cin >> propertyNum;
+						string name, propVal;
+						switch (propertyNum) {
+							case 1:
+								cout << "\t0 for hidden, 1 for rendered (Curr: " << gNodes[token]->isRendered << "): "; 
+								cin >> gNodes[token]->isRendered;
+								break;
+							case 2:
+								cout << "\tEnter the name of a mesh from below:\n";
+								for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it)
+									cout << '\t' << it->second->name << endl;
+								cin >> name;
+								while (gMeshes.count(name) == 0) {
+									cout << "\tFailed to find mesh, try again: ";
+									cin >> name;
+								}
+								gNodes[token]->LODstack[gNodes[token]->activeLOD]->setMesh(gMeshes[name]);
+								break;
+							case 3:
+								cout << "\tEnter the name of a material from below:\n";
+								for (auto it = gMaterials.cbegin(); it != gMaterials.cend(); ++it)
+									cout << '\t' << it->second->name << endl;
+								cin >> name;
+								while (gMaterials.count(name) == 0) {
+									cout << "\tFailed to find material, try again: ";
+									cin >> name;
+								}
+								gNodes[token]->LODstack[gNodes[token]->activeLOD]->setMaterial(gMaterials[name]);
+								break;
+							case 4:
+								cout << "\tEnter a number for a script from the below:\n";
+								for (int i = 0; i < gNodes[token]->scripts.size(); ++i)
+									cout << '\t' << i << ": " << gNodes[token]->scripts[i]->name << endl;
+								int scriptNum;
+								cin >> scriptNum;
+								cout << "\tPlease enter the property name to set: ";
+								cin >> name;
+								cout << "\tPlease enter the value to set it to: ";
+								cin >> propVal;
+								if (gNodes[token]->scripts[scriptNum]->setProperty(name, propVal)) cout << "\tSuccessfully set in script.\n";
+								else cout << "\tFailed to set property in script.";
+								break;
+							case 5:
+								cout << "\tTranslation.x (Curr: " << gNodes[token]->T.translation.x << "): "; cin >> gNodes[token]->T.translation.x;
+								cout << "\tTranslation.y (Curr: " << gNodes[token]->T.translation.y << "): "; cin >> gNodes[token]->T.translation.y;
+								cout << "\tTranslation.z (Curr: " << gNodes[token]->T.translation.z << "): "; cin >> gNodes[token]->T.translation.z;
+								break;
+							case 6:
+								cout << "\tRotation.x (Curr: " << gNodes[token]->T.rotation.x << "): "; cin >> gNodes[token]->T.rotation.x;
+								cout << "\tRotation.y (Curr: " << gNodes[token]->T.rotation.y << "): "; cin >> gNodes[token]->T.rotation.y;
+								cout << "\tRotation.z (Curr: " << gNodes[token]->T.rotation.z << "): "; cin >> gNodes[token]->T.rotation.z;
+								break;
+							case 7:
+								cout << "\tScale.x (Curr: " << gNodes[token]->T.scale.x << "): "; cin >> gNodes[token]->T.scale.x;
+								cout << "\tScale.y (Curr: " << gNodes[token]->T.scale.y << "): "; cin >> gNodes[token]->T.scale.y;
+								cout << "\tScale.z (Curr: " << gNodes[token]->T.scale.z << "): "; cin >> gNodes[token]->T.scale.z;
+								break;
+						}
+					}
+					else {
+						cout << "\tValid Commands:\n";
+						cout << "\tset camera\n\tset light\n\tset material\n\tset node\n\tset scene\n";
+					}
 				}
 				else if (token == "help" || token == "man")
 				{

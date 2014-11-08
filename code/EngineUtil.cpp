@@ -739,6 +739,17 @@ void initLightBuffer() {
 	glBufferData(GL_UNIFORM_BUFFER, sizeof(Light)* MAX_LIGHTS, gLights, GL_STREAM_DRAW); //Unlike glBufferSubData(), actually allocates data!
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
+void Light::typeToString() {
+	switch (type)
+	{
+		case Light::LIGHT_TYPE::POINT: cout << "point light\n"; break;
+		case Light::LIGHT_TYPE::DIRECTIONAL: cout << "directional light\n"; break;
+		case Light::LIGHT_TYPE::SPOT_LIGHT: cout << "spot light\n"; break;
+		case Light::LIGHT_TYPE::AMBIENT: cout << "ambient light\n"; break;
+		case Light::LIGHT_TYPE::HEAD_LIGHT: cout << "head light\n"; break;
+		case Light::LIGHT_TYPE::RIM_LIGHT: cout << "rim light\n"; break;
+	}
+}
 
 //-------------------------------------------------------------------------//
 
@@ -747,6 +758,7 @@ SceneGraphNode::SceneGraphNode(void) {
 	T.translation = glm::vec3(0, 0, 0);
 	T.rotation = glm::quat(T.translation); //Lookup over an allocation.
 	activeLOD = 0;
+	isRendered = true;
 }
 SceneGraphNode::~SceneGraphNode(void) {
 	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
@@ -789,7 +801,7 @@ void SceneGraphNode::update(Camera &camera, double dt)
 void SceneGraphNode::draw(Camera &camera) {
 
 	//printMat(transform);
-	if (activeLOD == -1) return; //Do not render objects beyond their renderThreshold of switchingDistances[0].
+	if (!isRendered || activeLOD == -1) return; //Do not render objects beyond their renderThreshold of switchingDistances[0].
 	LODstack[activeLOD]->prepareToDraw(camera, T, *LODstack[activeLOD]->material);
 
 	glUseProgram(this->LODstack[activeLOD]->material->shaderProgramHandles[LODstack[activeLOD]->material->activeShaderProgram]);
@@ -953,7 +965,7 @@ void Sprite::toSDL(FILE *F, int tabAmt) {
 	*/
 	const char* t = addTabs(tabAmt);
 	fprintf(F, "%ssprite {\n", t);
-	fprintf(F, "\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same material for sprites.
+	if (diffuseTexture != nullptr) fprintf(F, "\t%simage \"%s\"\n", t, diffuseTexture->fileName.c_str());
 	fprintf(F, "\t%sanimDir %i\n", t, animDir);
 	fprintf(F, "\t%sanimRate %f\n", t, animRate);
 	fprintf(F, "\t%sframeWidth %i\n", t, frameWidth);
@@ -970,7 +982,7 @@ void Billboard::toSDL(FILE *F, int tabAmt) {
 	const char* t = addTabs(tabAmt);
 	fprintf(F, "%sbillboard {\n", t);
 	fprintf(F, "\t%smaterial \"%s\"\n", t, material->name.c_str());
-	fprintf(F, "\t%simage %s \"%s\"\n", t, material->textures[0]->name.c_str(), material->textures[0]->fileName.c_str()); //This might actually make it such that we save and reload and it has a different texture, because of the same-texture bug in using same materials for billboards.
+	if (diffuseTexture != nullptr) fprintf(F, "\t%simage \"%s\"\n", t, diffuseTexture->fileName.c_str());
 	fprintf(F, "%s}\n", t);
 }
 void TriMeshInstance::toSDL(FILE *F, int tabAmt) {
@@ -984,6 +996,7 @@ void TriMeshInstance::toSDL(FILE *F, int tabAmt) {
 	fprintf(F, "%smeshInstance {\n", t);
 	fprintf(F, "\t%smesh \"%s\"\n", t, triMesh->name.c_str());
 	fprintf(F, "\t%smaterial \"%s\"\n", t, material->name.c_str());
+	if (diffuseTexture != nullptr) fprintf(F, "\t%simage \"%s\"\n", t, diffuseTexture->fileName.c_str());
 	fprintf(F, "%s}\n", t);
 }
 void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
@@ -1035,6 +1048,7 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	for (int i = 0; i < cameras.size(); ++i) cameras[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < LODstack.size(); ++i) LODstack[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
+	fprintf(F, "\t%smaxRenderDist %f\n", t, switchingDistances[0]);
 	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.z);
 	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.z);
 	fprintf(F, "\t%sscale [%f %f %f]\n", t, T.scale.x, T.scale.y, T.scale.z);

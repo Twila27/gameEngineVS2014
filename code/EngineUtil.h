@@ -179,6 +179,7 @@ struct Light {
 	Light(void) {}
 	Light(LIGHT_TYPE type, const glm::vec4 &pos, const glm::vec4 &dir, const glm::vec4 &atten)
 		: type(type), position(pos), direction(dir), attenuation(atten) {}
+	void typeToString();
 	void toSDL(FILE *F);
 };
 #define MAX_LIGHTS 8
@@ -200,6 +201,7 @@ public:
 	//"You want to be able to reuse the same shader and just send colors to the material."
 	//"Really you should have a MATERIAL CLASS that looks up the indices one time and stores those indices."
 	//"Once the shader program is compiled, the indices of the different uniforms then do not change."
+	Material(void) { colors.push_back(new NameIdVal<glm::vec4>()); colors.back()->name = "uDiffuseColor"; colors.back()->val = glm::vec4(1); }
 	~Material(void)
 	{
 		for (auto it = textures.begin(); it != textures.end(); ++it) delete *it;
@@ -291,13 +293,14 @@ public:
 	Script(SceneGraphNode* n) : node(n) {}
 	virtual Script* clone(SceneGraphNode *n) = 0;
 	virtual void initProperty(FILE *F, const string& propertyName, const string& propertyVal) = 0; 
-	virtual void setProperty(const string& propertyName, const string& propertyVal) = 0;
+	virtual bool setProperty(const string& propertyName, const string& propertyVal) = 0;
 	virtual void update(Camera& cam, double dt) = 0;
 };
 
 class SceneGraphNode {
 public:
 	string name;
+	bool isRendered;
 	int activeLOD;
 	vector<Drawable*> LODstack; //Level of detail stack.
 	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
@@ -307,7 +310,9 @@ public:
 	vector<Script*> scripts;
 	Transform T;
 	vector<ISound*> sounds;
+	void addScale(const glm::vec3 &s) { T.scale += s; }
 	void setScale(const glm::vec3 &s) { T.scale = s; }
+	void addRotation(const glm::vec3 &axis, const float angle) { T.rotation *= glm::quat(angle, axis); }
 	void setRotation(const glm::quat &r) { T.rotation = r; } //for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->rotateGlobal(r); }
 	void addTranslation(const glm::vec3 &t) { T.translation += t; for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->translateLocal(t); }
 	void setTranslation(const glm::vec3 &t) { 

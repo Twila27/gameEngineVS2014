@@ -8,6 +8,6 @@ public:
 	Script* MoverScript::clone(SceneGraphNode *n) override { return new MoverScript(n); } 
 	~MoverScript(); //In case there are any properties above that are pointers we need to delete.
 	void initProperty(FILE *F, const string& propertyName, const string& propertyVal) override;
-	void setProperty(const string& propertyName, const string& propertyVal) override;
+	bool setProperty(const string& propertyName, const string& propertyVal) override;
 	void update(Camera& cam, double dt) override;
 };
