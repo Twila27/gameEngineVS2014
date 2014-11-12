@@ -123,6 +123,8 @@ public:
 	}
 };
 
+//-------------------------------------------------------------------------//
+
 class Transform
 {
 public:
@@ -144,6 +146,29 @@ public:
 		invTransform = glm::inverse(transform);
 	}
 };
+
+/*struct Collider { //Killing it because trying to specify the argument of the function falls apart for subclasses.
+	virtual bool intersects(const Collider& c) = 0;
+};
+struct AABB : public Collider {
+	glm::vec3 min;
+	glm::vec3 max;
+	bool intersects(const AABB& c) override {
+		glm::vec3 overlapExtent = glm::min(this->max, c.max) - glm::max(this->min, c.min);
+		return overlapExtent.x > 0 && overlapExtent.y > 0 && overlapExtent.z > 0;
+	}
+};*/
+struct SphereCollider {
+	glm::vec3 center; //Actual collider center in world coords.
+	glm::vec3 offset; //From node position, see node::update().
+	float radius;
+	SphereCollider(glm::vec3 offset, float radius) : offset(offset), radius(radius) {}
+	bool intersects(const SphereCollider& c) {
+		return glm::dot(this->center - c.center, this->center - c.center) < (this->radius + c.radius)*(this->radius + c.radius); //Uses squared distances.
+	}
+};
+
+//-------------------------------------------------------------------------//
 
 class Camera
 {
@@ -284,7 +309,6 @@ public:
 	void toSDL(FILE *F, int tabAmt = 0) override;
 };
 
-
 class SceneGraphNode; //Because a Script references one.
 class Script {
 public:
@@ -309,21 +333,16 @@ public:
 	SceneGraphNode * parent;
 	vector<Script*> scripts;
 	Transform T;
+	SphereCollider * collider;
 	vector<ISound*> sounds;
 	void addScale(const glm::vec3 &s) { T.scale += s; }
 	void setScale(const glm::vec3 &s) { T.scale = s; }
 	void addRotation(const glm::vec3 &axis, const float angle) { T.rotation *= glm::quat(angle, axis); }
 	void setRotation(const glm::quat &r) { T.rotation = r; } //for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->rotateGlobal(r); }
 	void addTranslation(const glm::vec3 &t) { T.translation += t; for (int i = 0; i < (int)cameras.size(); ++i) cameras[i]->translateLocal(t); }
-	void setTranslation(const glm::vec3 &t) { 
-		T.translation = t; 
-		for (int i = 0; i < (int)cameras.size(); ++i) {
-			cameras[i]->center -= cameras[i]->eye; //Tmp storing this dist in center.
-			cameras[i]->eye = t; //However, center needs to still be eye-center away from eye.
-			cameras[i]->center = t + cameras[i]->center; //Should preserve eye and center, both translated to the new t.
-		}
-	}
-	
+	void setTranslation(const glm::vec3 &t);
+	void hasCollided(SceneGraphNode *n) { cout << "Hit.\n"; } //cout << name << "\thit\t" << n->name << endl; }
+
 	SceneGraphNode(void);
 	~SceneGraphNode(void);
 	void draw(Camera &camera);

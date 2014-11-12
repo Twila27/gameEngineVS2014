@@ -765,11 +765,23 @@ SceneGraphNode::~SceneGraphNode(void) {
 	//for (auto it = cameras.begin(); it != cameras.end(); ++it) delete *it; //Handled by gCameras.
 	for (auto it = sounds.begin(); it != sounds.end(); ++it) if (*it != nullptr) (*it)->drop();
 	for (auto it = scripts.begin(); it != scripts.end(); ++it) delete *it;
+	if (collider != nullptr) delete collider;
+}
+void SceneGraphNode::setTranslation(const glm::vec3 &t) {
+	T.translation = t;
+	for (int i = 0; i < (int)cameras.size(); ++i) {
+		cameras[i]->center -= cameras[i]->eye; //Tmp storing this dist in center.
+		cameras[i]->eye = t; //However, center needs to still be eye-center away from eye.
+		cameras[i]->center = t + cameras[i]->center; //Should preserve eye and center, both translated to the new t.
+	}
 }
 void SceneGraphNode::update(Camera &camera, double dt) 
 {
 	//Update transform for self, if there is no parent to update us for ourselves.
 	if (parent == nullptr) T.refreshTransform();
+
+	//Update collider position to match current translation.
+	if (collider != nullptr) collider->center = T.translation + collider->offset;
 
 	//Update children.
 	for (int i = 0; i < (int)children.size(); ++i) {
@@ -779,9 +791,7 @@ void SceneGraphNode::update(Camera &camera, double dt)
 		else children[i]->T.refreshTransform(T.transform);
 	}
 
-	//Update LOD stack.
-	//Reverse iter due to the back element in switchingDistances being the smallest threshold.
-	//i.e. The first element is the one viewed when furthest away (but not beyond the object's renderThreshold--switchingDistances[0]).
+	//Update LOD stack. Reverse iter due to switchingDistances[0] == distance from cam at which we stop rendering the object.
 	int currLOD = 0;
 	glm::vec3 camDistVec = T.translation - camera.eye;
 	float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
@@ -792,8 +802,7 @@ void SceneGraphNode::update(Camera &camera, double dt)
 			break;
 		}
 		currLOD++;
-	}
-	//Do any class-specific updating, such as billboard rotation computation or sprite frame update.
+	} //So the first element of LODstack is the one viewed when closest up, see sprint2b.scene.
 
 	//Run any scripts attached to the node.
 	for (int i = 0; i < (int)scripts.size(); ++i) scripts[i]->update(camera, dt);

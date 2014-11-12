@@ -472,6 +472,16 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			n->sounds.back()->stop();
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
 		}
+		else if (token == "collider") {
+				glm::vec3 offset;
+				float radius;
+			while (getToken(F, token, ONE_TOKENS)) {
+				if (token == "}") break;
+				else if (token == "offset") getFloats(F, &offset[0], 3);
+				else if (token == "radius") getFloats(F, &radius, 1);
+			}
+			n->collider = new SphereCollider(offset, radius);
+		}
 		else if (token == "isRendered") {
 			int tmpBool;
 			getInts(F, &tmpBool, 1);
@@ -814,8 +824,14 @@ void update(double dt)
 			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
 	}
 
+	//Collision detection loop.
+	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
+		if (it->second->collider != nullptr)
+			for (auto it2 = gNodes.begin(); it2 != gNodes.end(); ++it2)
+				if (*it != *it2 && it->second->collider->intersects(*it2->second->collider))
+					it->second->hasCollided(it2->second);
+
 	//Play the sound of an object within the specified number range below, if it isn't yet played.
-	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) {
 		glm::vec3 camDistVec = it->second->T.translation - (*gCameras[gActiveCamera]).eye;
 		if (it->second->sounds.size() > 0
@@ -823,6 +839,7 @@ void update(double dt)
 			&& camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z <= 10.0)
 			soundEngine->play3D(it->second->sounds.back()->getSoundSource(), irrklang::vec3df(it->second->T.translation.x, it->second->T.translation.y, it->second->T.translation.z), false, false, false, false); //Outside all thresholds.
 	}
+	//Could even add in a tick within the node class to check whether a sound is ready or should delay playing, so it's not just effectively looping.
 }
 void render(void)
 {
