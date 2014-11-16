@@ -449,18 +449,22 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 					if (gScripts.count(token) > 0) n->scripts.push_back(gScripts[token]->clone(n));
 					else ERROR("Unable to locate gScripts[" + token + "], check scene and library files?", false);
 				}
-				else { //Assumes anything between { and } is a property key-value pair. Type is known on other side from property name.
+				else if (token == "pairs") { //Assumes anything between { and } is a property key-value pair. Type is known on other side from property name.
 					string propertyName, propertyVal;
-					getToken(F, propertyName, ONE_TOKENS);
-					getToken(F, propertyVal, ONE_TOKENS); //Need to know whether [vector] or scalar valued.
-					if (propertyVal == "[") {
-						while (propertyVal.find(']') == string::npos) { //Until we find the closing bracket.
-							getToken(F, token, ONE_TOKENS);
-							propertyVal += token;
-						}
-					} //Else we have a scalar in the string without need for further processing.
-					if (!n->scripts.back()->setProperty(propertyName, propertyVal))
-						ERROR("Failed to set property in script.", false);
+					getToken(F, token, ONE_TOKENS); //Gets '{'. Loops over all key-value pairs.
+					while (true) {
+						getToken(F, propertyName, ONE_TOKENS);
+						if (propertyName == "}") break;
+						getToken(F, propertyVal, ONE_TOKENS); //Need to know whether [vector] or scalar valued.
+						if (propertyVal == "[") {
+							while (propertyVal.find(']') == string::npos) { //Until we find the closing bracket.
+								getToken(F, token, ONE_TOKENS);
+								propertyVal += token;
+							}
+						} //Else we have a scalar in the string without need for further processing.
+						if (!n->scripts.back()->setProperty(propertyName, propertyVal))
+							ERROR("Failed to set property in script.", false);
+					}
 				}
 			}
 		}
@@ -962,7 +966,7 @@ void useConsole(void)
 	cout << "\n================================================================================";
 	cout << "\t\t\t\tEntering Console";
 	cout << "\n================================================================================\n";
-	cout << "Commands: \n\tshh, noshh \n\tq, quit, exit \n\tb, build \n\tcreate \n\tload \n\tsave \n\tprint \n\tselect \n\tdeselect \n\tset\n";
+	cout << "Commands: \n\tshh, noshh \n\tq, quit, exit \n\tb, build \n\tcreate \n\tload \n\tsave \n\tprint \n\tselect \n\tdeselect \n\tdelete \n\tset\n";
 	do {
 		flag = false;
 		getline(cin, input);
@@ -973,7 +977,7 @@ void useConsole(void)
 		else if (input == "shh") soundEngine->setAllSoundsPaused(true);
 		else if (input == "noshh") soundEngine->setAllSoundsPaused(false);
 		else if (input == "q" || input == "quit" || input == "exit") break;
-		else { //Multiple-token commands.
+		else { //Assumes it was a multiple-token command.
 			istringstream iss(input); //HAVE to instantiate every iteration or it breaks.
 			while (iss) {
 				string token;
@@ -1284,9 +1288,10 @@ void useConsole(void)
 					}
 					cout << "\tRemember to follow up with \'save\' to write to the file for non-scenes.\n";
 				}
-				else if (token == "delete") {
+				else if (token == "delete") 
+				{
 					iss >> token;
-					if (token == "delete") token == "";
+					if (token == "delete") token = "";
 					else if (token == "scene") {
 						iss >> token;
 						if (token == "scene") token = "";
@@ -1338,6 +1343,7 @@ void useConsole(void)
 							gScripts.erase(it);
 						}
 					}
+
 					if (token == "") {
 						cout << "\tValid Commands:\n";
 						cout << "\tdelete scene sceneToRemove.scene\n";
@@ -1346,6 +1352,7 @@ void useConsole(void)
 						cout << "\tdelete mesh meshNameToRemove\n";
 						cout << "\tdelete node nodeNameToRemove\n";
 						cout << "\tdelete script scriptNameToRemove\n";
+						cout << "\tCannot delete lights currently.\n";
 						break;
 					}
 				}
@@ -1702,8 +1709,10 @@ void useConsole(void)
 					else if (token == "load");
 					else if (token == "save");
 				}
-			}
+				//else input == "";
+			}	
 		}
+		//if (input == "") cout << "Command not supported, check useConsole() for bugs.\n"; //Set by multi-command loop as a flag.
 	} while (true); //Console IO loop.
 	cout << "\n================================================================================";
 	cout << "\t\t\t\tExiting Console";
