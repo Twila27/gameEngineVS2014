@@ -14,6 +14,7 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <list>
 #include <map>
 using namespace std;
 
@@ -142,8 +143,8 @@ public:
 		glm::mat4x4 Mscale = glm::scale(scale);
 		glm::mat4x4 Mrot = glm::toMat4(rotation);
 		if (shouldRotate) transform = parentTransform * Mtrans * Mrot * Mscale;  // transforms happen right to left
-		else transform = glm::translate(parentTrans) * glm::scale(parentScale) * Mtrans * Mrot * Mscale; // child will rot indep of parent -- but it seems like parentTrans afflicts billboard/sprite rotations! /!\
-		invTransform = glm::inverse(transform);
+		else transform = glm::translate(parentTrans) * glm::scale(parentScale) * Mtrans * Mrot * Mscale; // child will rot indep of parent -- but it seems like parentTrans afflicts billboard/sprite rotations!
+		//invTransform = glm::inverse(transform);
 	}
 };
 
@@ -288,8 +289,10 @@ public:
 	//We can get the size of frames[][] from nRows or := textures[0].w/spriteW * nCols or := textures[0].h/spriteH.
 	//Stick to a row per animation, kept in activeRow variable in this class.
 	Sprite(void) { 
-		animDir = animRate = amtRows = amtCols = 1; 
-		activeFrame = activeRow = frameWidth = frameHeight = sheetWidth = sheetHeight = currAccumulatedTime = 0;
+		animDir = amtRows = amtCols = 1; 
+		animRate = 1.0f;
+		activeFrame = activeRow = frameWidth = frameHeight = sheetWidth = sheetHeight = 0;
+		currAccumulatedTime = 0.0f;
 	}
 	void switchAnim(int newRow) { activeRow = newRow; } //Just ensure animations have an enum.
 	virtual void prepareToDraw(const Camera& camera, Transform& T, Material& material) override;
@@ -312,13 +315,14 @@ public:
 class SceneGraphNode; //Because a Script references one.
 class Script {
 public:
-	string name;
+	string type;
+	bool active;
 	SceneGraphNode* node; //The node this script is attached to.
-	Script(SceneGraphNode* n) : node(n) {}
+	Script(SceneGraphNode* n) : node(n) { active = true; }
 	virtual Script* clone(SceneGraphNode *n) = 0;
-	virtual void initProperty(FILE *F, const string& propertyName, const string& propertyVal) = 0; 
 	virtual bool setProperty(const string& propertyName, const string& propertyVal) = 0;
-	virtual void update(Camera& cam, float dt) = 0;
+	virtual void update(Camera& cam, double dt) = 0;
+	virtual void toSDL(FILE *F, const char* tabs) = 0;
 };
 
 class SceneGraphNode {

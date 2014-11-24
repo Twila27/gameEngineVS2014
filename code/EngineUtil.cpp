@@ -7,7 +7,7 @@
 
 void ERROR(const string &msg, bool doExit)
 {
-	//cerr << "\nERROR! " << msg << endl;
+	cerr << "\nERROR! " << msg << endl;
 	if (doExit) {
 #ifdef _DEBUG
 		cin >> doExit;
@@ -474,7 +474,7 @@ void Material::bindMaterial(void) {
 		colors[i]->id = glGetUniformLocation(shaderProgramHandles[activeShaderProgram], colors[i]->name.c_str());
 		if (colors[i]->id != -1) glUniform4fv(colors[i]->id, 1, &colors[i]->val[0]);
 #ifdef _DEBUG
-		else ERROR("\n\tFailure in color setup loop.", false);
+		//else ERROR("\n\tFailure in color setup loop.", false);
 #endif
 
 	}
@@ -1057,6 +1057,8 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	for (int i = 0; i < cameras.size(); ++i) cameras[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < LODstack.size(); ++i) LODstack[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
+	for (int i = 0; i < scripts.size(); ++i) scripts[i]->toSDL(F, addTabs(tabAmt + 1));
+	fprintf(F, "\t%sisRendered %d\n", t, isRendered);
 	fprintf(F, "\t%smaxRenderDist %f\n", t, switchingDistances[0]);
 	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.z);
 	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.z);

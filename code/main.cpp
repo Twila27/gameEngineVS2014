@@ -134,7 +134,7 @@ void saveWorldSettings(FILE *F) {
 	fprintf(F, "\twidth %i\n", gWidth);
 	fprintf(F, "\theight %i\n", gHeight);
 	fprintf(F, "\tspp %i\n", gSPP);
-	fprintf(F, "\tbackgroundColor [%f %f %f]\n", backgroundColor.r, backgroundColor.g, backgroundColor.b);
+	fprintf(F, "\tbackgroundColor [%f %f %f]\n", gBackgroundColor.r, gBackgroundColor.g, gBackgroundColor.b);
 	if (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0) fprintf(F, "\tbackgroundMusic \"%s\"\n", gBackgroundMusic->getSoundSource()->getName());
 #ifdef _DEBUG
 	else ERROR("\tWarning: no background music was found or getSoundSource() returned 0.", false);
@@ -157,7 +157,7 @@ void loadWorldSettings(FILE *F)
 		else if (token == "debugFont") getToken(F, fontFileName, ONE_TOKENS);
 		else if (token == "fontTexNumRows") getInts(F, &fontTexNumRows, 1);
 		else if (token == "fontTexNumCols") getInts(F, &fontTexNumCols, 1);
-		else if (token == "backgroundColor") getFloats(F, &backgroundColor[0], 3);
+		else if (token == "backgroundColor") getFloats(F, &gBackgroundColor[0], 3);
 		else if (token == "backgroundMusic") {
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
@@ -441,7 +441,16 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			//gCameras.push_back(n->cameras.back()); //Already done in loadCamera().
 			n->cameras.back()->inNode = true;
 		}
-		else if (token == "script") {
+		else if (token == "script") { //Example:
+			/*
+				script {
+					type "moverScript"
+					pairs {
+						velocity [1,1,1]
+						minSpeed [1,1,1]
+					}
+				}
+			*/
 			while (getToken(F, token, ONE_TOKENS)) {
 				if (token == "}") break;
 				else if (token == "type") {
@@ -832,7 +841,7 @@ void update(double dt)
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
 		if (it->second->collider != nullptr)
 			for (auto it2 = gNodes.begin(); it2 != gNodes.end(); ++it2)
-				if (*it != *it2 && it->second->collider->intersects(*it2->second->collider))
+				if (*it != *it2 && it2->second->collider != nullptr && it->second->collider->intersects(*it2->second->collider))
 					it->second->hasCollided(it2->second);
 
 	//Play the sound of an object within the specified number range below, if it isn't yet played.
@@ -849,7 +858,7 @@ void render(void)
 {
 	// clear color and depth buffer
 	if (gBuildMode) glClearColor(0, 0, 0, 1.0f);
-	else glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
+	else glClearColor(gBackgroundColor.r, gBackgroundColor.g, gBackgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (gShowPerFrameDebug) {
@@ -882,6 +891,8 @@ int main(int numArgs, char **args)
 
 	//Ready script pool.
 	gScripts["moverScript"] = new MoverScript(nullptr);
+	gScripts["emitterScript"] = new EmitterScript(nullptr);
+	gScripts["rgbGameScript"] = new RGBGameScript(nullptr);
 
 	// Play 3D sound
 	//string soundFileName;
@@ -1365,7 +1376,7 @@ void useConsole(void)
 					else if (token == "meshes") for (auto it = gMeshes.cbegin(); it != gMeshes.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "nodes") for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) cout << '\t' << it->second->name << endl;
 					else if (token == "scenes") for (auto it = gSceneFileNames.cbegin(); it != gSceneFileNames.cend(); ++it) cout << '\t' << *it << endl;
-					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->name << endl;
+					else if (token == "scripts") for (auto it = gScripts.cbegin(); it != gScripts.cend(); ++it) cout << '\t' << it->second->type << endl;
 					else if (token == "paths") for (auto it = getPATH().cbegin(); it != getPATH().cend(); ++it) cout << '\t' << *it << endl;
 					else cout << "\tValid Commands:\n\tprint cameras\n\tprint lights\n\tprint materials\n\tprint meshes\n\tprint nodes\n\tprint scenes\n\tprint scripts\n\tprint paths\n";
 				}
@@ -1374,7 +1385,7 @@ void useConsole(void)
 					if (token == "select") token = "";
 					else if (token == "all") 
 						for (auto it = gNodes.begin(); it != gNodes.end(); ++it) {
-							gSelected[token] = it->second;
+							gSelected[it->first] = it->second;
 							for (int j = 0; j < it->second->LODstack.size(); ++j)
 							for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
 								if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
@@ -1482,9 +1493,9 @@ void useConsole(void)
 								cout << "\tSPP (Curr: " << gSPP << "): "; cin >> gSPP;
 								break;
 							case 5:
-								cout << "\tColor.r (Curr: " << backgroundColor.r << "): "; cin >> backgroundColor.r;
-								cout << "\tColor.g (Curr: " << backgroundColor.g << "): "; cin >> backgroundColor.g;
-								cout << "\tColor.b (Curr: " << backgroundColor.b << "): "; cin >> backgroundColor.b;
+								cout << "\tColor.r (Curr: " << gBackgroundColor.r << "): "; cin >> gBackgroundColor.r;
+								cout << "\tColor.g (Curr: " << gBackgroundColor.g << "): "; cin >> gBackgroundColor.g;
+								cout << "\tColor.b (Curr: " << gBackgroundColor.b << "): "; cin >> gBackgroundColor.b;
 								break;
 							case 6:
 								cout << "\tFilename (Curr: " << (gBackgroundMusic != nullptr && gBackgroundMusic->getSoundSource() != 0 ? gBackgroundMusic->getSoundSource()->getName() : "None") << "): ";
@@ -1660,7 +1671,7 @@ void useConsole(void)
 							case 4:
 								cout << "\tEnter a number for a script from the below:\n";
 								for (int i = 0; i < gNodes[token]->scripts.size(); ++i)
-									cout << '\t' << i << ": " << gNodes[token]->scripts[i]->name << endl;
+									cout << '\t' << i << ": " << gNodes[token]->scripts[i]->type << endl;
 								int scriptNum;
 								cin >> scriptNum;
 								cout << "\tPlease enter the property name to set: ";
@@ -1686,6 +1697,9 @@ void useConsole(void)
 								cout << "\tScale.z (Curr: " << gNodes[token]->T.scale.z << "): "; cin >> gNodes[token]->T.scale.z;
 								break;
 						}
+					}
+					else if (token == "script") {
+
 					}
 					else {
 						cout << "\tValid Commands:\n";

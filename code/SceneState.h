@@ -6,7 +6,7 @@ extern string gWindowTitle;
 extern int gWidth; // window width
 extern int gHeight; // window height
 extern int gSPP; // samples per pixel
-extern glm::vec4 backgroundColor;
+extern glm::vec4 gBackgroundColor;
 
 extern ISoundEngine* soundEngine;
 extern ISound* gBackgroundMusic;

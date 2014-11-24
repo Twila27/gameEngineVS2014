@@ -5,7 +5,7 @@ string gWindowTitle = "OpenGL App";
 int gWidth; // window width
 int gHeight; // window height
 int gSPP = 16; // samples per pixel
-glm::vec4 backgroundColor;
+glm::vec4 gBackgroundColor;
 
 ISoundEngine* soundEngine = NULL;
 ISound* gBackgroundMusic = NULL;
