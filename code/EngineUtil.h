@@ -148,27 +148,6 @@ public:
 	}
 };
 
-/*struct Collider { //Killing it because trying to specify the argument of the function falls apart for subclasses.
-	virtual bool intersects(const Collider& c) = 0;
-};
-struct AABB : public Collider {
-	glm::vec3 min;
-	glm::vec3 max;
-	bool intersects(const AABB& c) override {
-		glm::vec3 overlapExtent = glm::min(this->max, c.max) - glm::max(this->min, c.min);
-		return overlapExtent.x > 0 && overlapExtent.y > 0 && overlapExtent.z > 0;
-	}
-};*/
-struct SphereCollider {
-	glm::vec3 center; //Actual collider center in world coords.
-	glm::vec3 offset; //From node position, see node::update().
-	float radius;
-	SphereCollider(glm::vec3 offset, float radius) : offset(offset), radius(radius) {}
-	bool intersects(const SphereCollider& c) {
-		return glm::dot(this->center - c.center, this->center - c.center) < (this->radius + c.radius)*(this->radius + c.radius); //Uses squared distances.
-	}
-};
-
 //-------------------------------------------------------------------------//
 
 class Camera
@@ -311,6 +290,19 @@ public:
 	//void draw(Camera& camera) override;
 	void toSDL(FILE *F, int tabAmt = 0) override;
 };
+
+struct SphereCollider {
+	bool isRendered;
+	glm::vec3 center; //Actual collider center in world coords.
+	glm::vec3 offset; //From node position, see node::update().
+	float radius;
+	TriMeshInstance *meshInstance; //Drawn by node::draw() if visible.
+	SphereCollider(glm::vec3 offset, float radius) : offset(offset), radius(radius), isRendered(true), meshInstance(new TriMeshInstance()) {}
+	bool intersects(const SphereCollider& c) {
+		return glm::dot(this->center - c.center, this->center - c.center) < (this->radius + c.radius)*(this->radius + c.radius); //Uses squared distances.
+	}
+};
+
 
 class SceneGraphNode; //Because a Script references one.
 class Script {

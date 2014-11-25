@@ -849,6 +849,7 @@ void SceneGraphNode::draw(Camera &camera) {
 #endif
 
 	LODstack[activeLOD]->draw(camera);
+	if (collider != nullptr && collider->isRendered) collider->meshInstance->draw(camera);
 }
 
 //-------------------------------------------

@@ -162,7 +162,7 @@ void loadWorldSettings(FILE *F)
 			string fileName, fullFileName;
 			getToken(F, fileName, ONE_TOKENS);
 			getFullFileName(fileName, fullFileName);
-			gBackgroundMusic = soundEngine->play2D(fullFileName.c_str(), true, false, true, irrklang::ESM_AUTO_DETECT, true);
+			gBackgroundMusic = soundEngine->play2D(fullFileName.c_str(), true, true, true, irrklang::ESM_AUTO_DETECT, true);
 			//Only returns ISound* if 'track', 'startPaused' or 'enableSoundEffects' are true.
 		}
 	}
@@ -273,7 +273,7 @@ Drawable* loadAndReturnSprite(FILE *F)
 
 	//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
 	if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
-	else ERROR("Unable to locate gMeshes[\"sprite\"], check scene and library files?", false);
+	else ERROR("Unable to locate gMaterials[\"sprite\"], check scene and library files?", false);
 
 	//Assign flat card mesh.
 	if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
@@ -494,6 +494,12 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 				else if (token == "radius") getFloats(F, &radius, 1);
 			}
 			n->collider = new SphereCollider(offset, radius);
+			//Assign collider material since there's only ever one for it to be.
+			if (gMaterials.count("collider") > 0) n->collider->meshInstance->setMaterial(gMaterials["collider"]);
+			else ERROR("Unable to locate gMaterials[\"collider\"], check scene and library files?", false);
+			//Assign collider mesh.
+			if (gMeshes.count("collider") > 0) n->collider->meshInstance->setMesh(gMeshes["collider"]);
+			else ERROR("Unable to locate gMeshes[\"collider\"], check scene and library files?", false);
 		}
 		else if (token == "isRendered") {
 			int tmpBool;
@@ -556,6 +562,10 @@ void loadScene(const char *sceneFile)
 	gNumLights = 0;
 	gLightsUBO = NULL_HANDLE;
 	gActiveCamera = 0;
+	if (gBackgroundMusic) {
+		gBackgroundMusic->stop();
+		gBackgroundMusic->drop();
+	}
 
 	//Add the path used for the scene to the EngineUtil's PATH variable.
 	gActiveSceneName = sceneFile;
@@ -660,7 +670,7 @@ SceneGraphNode* consoleLoadNode(const string& name = "") {
 
 			//Assign sprite material since there's only ever one for it to be. Else uncomment below code.
 			if (gMaterials.count("sprite") > 0) sprite->setMaterial(gMaterials["sprite"]);
-			else ERROR("\tUnable to locate gMeshes[\"sprite\"], check scene and library files?", false);
+			else ERROR("\tUnable to locate gMaterials[\"sprite\"], check scene and library files?", false);
 
 			//Assign flat card mesh.
 			if (gMeshes.count("flatCard") > 0) sprite->setMesh(gMeshes["flatCard"]);
@@ -804,8 +814,6 @@ void update(double dt)
 
 	if (gShouldSwapScene) {
 		gShouldSwapScene = false;
-		if (gBackgroundMusic) gBackgroundMusic->drop();
-		soundEngine->stopAllSounds();
 		glfwTerminate();
 		cout << "\n================================================================================\n";
 		loadScene(gSceneFileNames[gActiveScene].c_str());
