@@ -1391,18 +1391,20 @@ void useConsole(void)
 				else if (token == "select") {
 					iss >> token;
 					if (token == "select") token = "";
-					else if (token == "all") 
+					else if (token == "all") {
 						for (auto it = gNodes.begin(); it != gNodes.end(); ++it) {
+							if (gSelected.count(it->first) > 0) continue; //Already selected.
 							gSelected[it->first] = it->second;
 							for (int j = 0; j < it->second->LODstack.size(); ++j)
 							for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
-								if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
-									{
-										it->second->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
-										it->second->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
-										it->second->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
-									}
+							if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+							{
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
+							}
 						}
+					}
 					else {
 						gSelected[token] = gNodes[token];
 						for (int j = 0; j < gNodes[token]->LODstack.size(); ++j)
@@ -1438,16 +1440,17 @@ void useConsole(void)
 					iss >> token;
 					if (token == "deselect") token = "";
 					else if (token == "all") {
-						gSelected.clear();
-						for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-						for (int j = 0; j < it->second->LODstack.size(); ++j)
-						for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
-						if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
-						{
-							it->second->LODstack[j]->getMaterial()->colors[k]->val.r -= 1.0f;
-							it->second->LODstack[j]->getMaterial()->colors[k]->val.g -= 1.0f;
-							it->second->LODstack[j]->getMaterial()->colors[k]->val.b -= 1.0f;
+						for (auto it = gSelected.begin(); it != gSelected.end(); ++it) {
+							for (int j = 0; j < it->second->LODstack.size(); ++j)
+							for (int k = 0; k < it->second->LODstack[j]->getMaterial()->colors.size(); ++k)
+							if (it->second->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+							{
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.r -= 1.0f;
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.g -= 1.0f;
+								it->second->LODstack[j]->getMaterial()->colors[k]->val.b -= 1.0f;
+							}
 						}
+						gSelected.clear();
 					}
 					else {
 						gSelected.erase(token); //Removes the pointer to our object, doesn't destroy the object.
