@@ -312,6 +312,7 @@ public:
 	SceneGraphNode* node; //The node this script is attached to.
 	Script(SceneGraphNode* n) : node(n) { active = true; }
 	virtual Script* clone(SceneGraphNode *n) = 0;
+	virtual void postParseInit() = 0;
 	virtual bool setProperty(const string& propertyName, const string& propertyVal) = 0;
 	virtual void update(Camera& cam, double dt) = 0;
 	virtual void toSDL(FILE *F, const char* tabs) = 0;

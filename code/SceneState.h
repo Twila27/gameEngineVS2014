@@ -31,5 +31,6 @@ extern bool gShowPerFrameDebug; //F1.
 
 //For dev controls.
 extern bool gBuildMode;
+extern bool gFreeFlyCam;
 extern string gGlobalTmpStr;
 void useConsole(void);

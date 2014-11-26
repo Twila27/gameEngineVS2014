@@ -7,7 +7,8 @@ protected:
 	glm::vec3 minSpeed; //What we increment and decrement our velocity with.
 public:
 	MoverScript(SceneGraphNode *n) : Script(n) { type = "moverScript"; minSpeed = velocity = glm::vec3(0); }
-	Script* clone(SceneGraphNode *n) override { return new MoverScript(n); } 
+	Script* clone(SceneGraphNode *n) override { return new MoverScript(n); }
+	void postParseInit() override { return; }
 	~MoverScript(); //In case there are any properties above that are pointers we need to delete.
 	bool setProperty(const string& propertyName, const string& propertyVal) override;
 	void update(Camera& cam, double dt) override;
@@ -34,6 +35,7 @@ protected:
 public:
 	EmitterScript(SceneGraphNode *n);
 	Script* clone(SceneGraphNode *n) override { return new EmitterScript(n); }
+	void postParseInit() override { return; }
 	~EmitterScript() { for (auto it = particles.begin(); it != particles.end(); ++it) delete *it; }
 	bool setProperty(const string& propertyName, const string& propertyVal) override;
 	void update(Camera& cam, double dt) override;
@@ -42,26 +44,32 @@ public:
 
 class RGBGameScript : public Script {
 protected:
-	enum Enemy {NORTH, SOUTH, EAST, WEST};
-	enum Color {R, G, B};
+	enum Enemy {NORTH = 1, SOUTH, EAST, WEST};
+	enum Color {R = 1, G, B};
+	bool cooldown = true; //Used to control when player can attack, which is between after enemy ticks.
 	const float bgColorChangeAmt = 0.1f;
-	int currAttacker;
-	bool hit, block;
+	const float colorThreshold = 5.0f;
+	int accEnemyTicks = 0;
+	SceneGraphNode *currAttacker;
+	int currAttackerId;
+	bool hit, block, counterR, counterG, counterB, counteredR, counteredG, counteredB;
 	double accTime;
 	glm::vec4 order;
 	float enemyTickRate;
 	int initPlayerHP, initEnemyHP;
-	int maxPlayerHP, maxEnemyHP;
+	int maxPlayerHP, maxEnemyHP, currMaxPlayerHP;
 	SceneGraphNode *N, *S, *E, *W, *P;
 	SceneGraphNode *WinText, *LossText;
 	SceneGraphNode *currTarget;
-	ISound *winSound, *lossSound, *deathSound, *hitSound;
+	ISound *winSound, *lossSound, *deathSound, *hitSound, *enemySound;
 public:
 	RGBGameScript(SceneGraphNode *n);
 	Script* clone(SceneGraphNode *n) override { return new RGBGameScript(n); }
+	void postParseInit() override;
 	bool setProperty(const string& propertyName, const string& propertyVal) override;
 	void update(Camera& cam, double dt) override;
 	void toSDL(FILE *F, const char* tabs) override;
+	SceneGraphNode* getAttackerFromInt(int id);
 	int getNextEnemyFromOrder();
 	void healPlayer();
 	void hurtPlayer();

@@ -792,22 +792,26 @@ void SceneGraphNode::update(Camera &camera, double dt)
 	}
 
 	//Update LOD stack. Reverse iter due to switchingDistances[0] == distance from cam at which we stop rendering the object.
-	int currLOD = 0;
-	glm::vec3 camDistVec = T.translation - camera.eye;
-	float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
-	if (camDistSqr > switchingDistances[0]*switchingDistances[0]) activeLOD = -1; //Outside all thresholds.
-	else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
-		if (camDistSqr <= (*it)*(*it)) {
-			activeLOD = currLOD; 
-			break;
-		}
-		currLOD++;
-	} //So the first element of LODstack is the one viewed when closest up, see sprint2b.scene.
+	if (LODstack.size() != 0) {
+		int currLOD = 0;
+		glm::vec3 camDistVec = T.translation - camera.eye;
+		float camDistSqr = camDistVec.x*camDistVec.x + camDistVec.y*camDistVec.y + camDistVec.z*camDistVec.z;
+		if (camDistSqr > switchingDistances[0] * switchingDistances[0]) activeLOD = -1; //Outside all thresholds.
+		else for (auto it = switchingDistances.rbegin(); it != switchingDistances.rend(); ++it) {
+			if (camDistSqr <= (*it)*(*it)) {
+				activeLOD = currLOD;
+				break;
+			}
+			currLOD++;
+		} //So the first element of LODstack is the one viewed when closest up, see sprint2b.scene.
+	}
 
 	//Run any scripts attached to the node.
-	for (int i = 0; i < (int)scripts.size(); ++i) scripts[i]->update(camera, dt);
+	for (int i = 0; i < (int)scripts.size(); ++i) if (scripts[i]->active) scripts[i]->update(camera, dt);
 }
 void SceneGraphNode::draw(Camera &camera) {
+
+	if (LODstack.size() == 0) return;
 
 	//printMat(transform);
 	if (!isRendered || activeLOD == -1) return; //Do not render objects beyond their renderThreshold of switchingDistances[0].
@@ -976,6 +980,7 @@ void Sprite::toSDL(FILE *F, int tabAmt) {
 	const char* t = addTabs(tabAmt);
 	fprintf(F, "%ssprite {\n", t);
 	if (diffuseTexture != nullptr) fprintf(F, "\t%simage \"%s\"\n", t, diffuseTexture->fileName.c_str());
+	if (material->name != "sprite") fprintf(F, "\t%ssprite \"%s\"\n", t, material->name.c_str());
 	fprintf(F, "\t%sanimDir %i\n", t, animDir);
 	fprintf(F, "\t%sanimRate %f\n", t, animRate);
 	fprintf(F, "\t%sframeWidth %i\n", t, frameWidth);
@@ -1060,7 +1065,7 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < scripts.size(); ++i) scripts[i]->toSDL(F, addTabs(tabAmt + 1));
 	fprintf(F, "\t%sisRendered %d\n", t, isRendered);
-	fprintf(F, "\t%smaxRenderDist %f\n", t, switchingDistances[0]);
+	if (switchingDistances.size() > 0) fprintf(F, "\t%smaxRenderDist %f\n", t, switchingDistances[0]);
 	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.z);
 	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.z);
 	fprintf(F, "\t%sscale [%f %f %f]\n", t, T.scale.x, T.scale.y, T.scale.z);

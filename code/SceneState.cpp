@@ -30,5 +30,6 @@ bool gShowPerFrameDebug = false; //F1.
 
 //For dev controls.
 bool gBuildMode = false;
+bool gFreeFlyCam = false;
 string gGlobalTmpStr("");
 void useConsole(void);

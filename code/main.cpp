@@ -30,10 +30,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			gShouldSwapScene = true;
 			break;
 		case GLFW_KEY_LEFT_ALT:
-			soundEngine->setAllSoundsPaused(true);
+			if (gBackgroundMusic) gBackgroundMusic->setIsPaused(true);
 			break;
 		case GLFW_KEY_RIGHT_ALT:
-			soundEngine->setAllSoundsPaused(false);
+			if (gBackgroundMusic) gBackgroundMusic->setIsPaused(false);
 			break;
 		case GLFW_KEY_SPACE:
 			soundEngine->play3D("bell.wav", irrklang::vec3df(gCameras[gActiveCamera]->eye.x, gCameras[gActiveCamera]->eye.y, gCameras[gActiveCamera]->eye.z));
@@ -44,8 +44,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		case GLFW_KEY_F1:
 			gShowPerFrameDebug = !gShowPerFrameDebug;
 			break;
-		case GLFW_KEY_B:
+		case GLFW_KEY_HOME:
 			gBuildMode = !gBuildMode;
+			break;
+		case GLFW_KEY_END:
+			gFreeFlyCam = !gFreeFlyCam;
 			break;
 		case GLFW_KEY_GRAVE_ACCENT:
 			if (gBuildMode) useConsole();
@@ -281,12 +284,12 @@ Drawable* loadAndReturnSprite(FILE *F)
 
 	while (getToken(F, token, ONE_TOKENS)) {
 		if (token == "}") break;
-		//else if (token == "material") {
-		//	string materialName;
-		//	getToken(F, materialName, ONE_TOKENS);
-		//	if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
-		//	else ERROR("Unable to locate gMaterials[" + materialName + "], check scene and library files?", false);
-		//}
+		else if (token == "material") {
+			string materialName;
+			getToken(F, materialName, ONE_TOKENS);
+			if (gMaterials.count(materialName) > 0)	sprite->setMaterial(gMaterials[materialName]);
+			else ERROR("Unable to locate gMaterials[" + materialName + "], check scene and library files?", false);
+		}
 		else if (token == "image") {
 			sprite->diffuseTexture = new RGBAImage();
 			sprite->diffuseTexture->name = "uDiffuseTex";
@@ -476,6 +479,7 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 					}
 				}
 			}
+			n->scripts.back()->postParseInit();
 		}
 		else if (token == "sound") {
 			string fileName, fullFileName;
@@ -566,6 +570,7 @@ void loadScene(const char *sceneFile)
 		gBackgroundMusic->stop();
 		gBackgroundMusic->drop();
 	}
+	soundEngine->stopAllSounds();
 
 	//Add the path used for the scene to the EngineUtil's PATH variable.
 	gActiveSceneName = sceneFile;
@@ -588,6 +593,8 @@ void loadScene(const char *sceneFile)
 		else if (token == "light") loadLight(F);
 	}
 	fclose(F);
+
+	if (gBackgroundMusic) gBackgroundMusic->setIsPaused(false);
 }
 
 //Console and main loops.
@@ -821,7 +828,7 @@ void update(double dt)
 
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
 
-	//Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
+	/*Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
 	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
 		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
 		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
@@ -843,7 +850,7 @@ void update(double dt)
 		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
 			//it->second->setTranslation(glm::vec3(0, -rAmt, 0));
 			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
-	}
+	}*/
 
 	//Collision detection loop.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
@@ -943,7 +950,7 @@ int main(int numArgs, char **args)
 		// handle input
 		glfwPollEvents();
 		if (gBuildMode) keyboardBuildModeController();
-		else keyboardCameraController(*gCameras[gActiveCamera]);
+		if (gFreeFlyCam) keyboardCameraController(*gCameras[gActiveCamera]);
 		if (glfwWindowShouldClose(gWindow) != 0) break;
 
 		if (gShowPerFrameDebug) {
@@ -1407,20 +1414,20 @@ void useConsole(void)
 					}
 					else {
 						gSelected[token] = gNodes[token];
-						for (int j = 0; j < gNodes[token]->LODstack.size(); ++j)
-						for (int k = 0; k < gNodes[token]->LODstack[j]->getMaterial()->colors.size(); ++k)
-						if (gNodes[token]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+						for (int j = 0; j < gSelected[token]->LODstack.size(); ++j)
+						for (int k = 0; k < gSelected[token]->LODstack[j]->getMaterial()->colors.size(); ++k)
+						if (gSelected[token]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
 						{
-							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
-							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
-							gNodes[token]->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
+							gSelected[token]->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
+							gSelected[token]->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
+							gSelected[token]->LODstack[j]->getMaterial()->colors[k]->val.b += 1.0f;
 						}
 
-						for (int i = 0; i < gNodes[token]->children.size(); ++i) { //Add any children.
-							gSelected[gNodes[token]->children[i]->name] = gNodes[token]->children[i];
-							for (int j = 0; j < gNodes[token]->children[i]->LODstack.size(); ++j)
-							for (int k = 0; k < gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors.size(); ++k)
-							if (gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
+						for (int i = 0; i < gSelected[token]->children.size(); ++i) { //Add any children.
+							gSelected[gSelected[token]->children[i]->name] = gSelected[token]->children[i];
+							for (int j = 0; j < gSelected[token]->children[i]->LODstack.size(); ++j)
+							for (int k = 0; k < gSelected[token]->children[i]->LODstack[j]->getMaterial()->colors.size(); ++k)
+							if (gSelected[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->name == "uDiffuseColor")
 							{
 								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.r += 1.0f;
 								gNodes[token]->children[i]->LODstack[j]->getMaterial()->colors[k]->val.g += 1.0f;
