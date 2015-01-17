@@ -667,14 +667,16 @@ void Sprite::prepareToDraw(const Camera& camera, Transform& T, Material& materia
 	float xRot = -asin(vd.y);
 	T.rotation *= glm::quat(cos(xRot*0.5f), glm::vec3(1, 0, 0)*sin(xRot*0.5f));
 
-	//Update the current frame.
-	if (currAccumulatedTime >= animRate) { //Specify animRate in FPS, roughly.
-		activeFrame += animDir; //Could be +1 or -1.
-		if (activeFrame < 0) activeFrame = frames.size() - 1;
-		else if (activeFrame > frames.size() - 1) activeFrame = 0;
-		currAccumulatedTime = 0;
+	//Update the current frame unless animRate or animDir is zero.
+	if (!(animRate == 0 || animDir == 0)) {
+		if (currAccumulatedTime >= animRate) { //Specify animRate in FPS, roughly.
+			activeFrame += animDir; //Could be +1 or -1.
+			if (activeFrame < 0) activeFrame = frames.size() - 1;
+			else if (activeFrame > frames.size() - 1) activeFrame = 0;
+			currAccumulatedTime = 0;
+		}
+		else currAccumulatedTime += FIXED_DT;
 	}
-	else currAccumulatedTime += FIXED_DT;
 
 	//Set the new sprite frame in the shader.
 	glUseProgram(material.shaderProgramHandles[material.activeShaderProgram]);
@@ -756,7 +758,7 @@ void Light::typeToString() {
 SceneGraphNode::SceneGraphNode(void) {
 	T.scale = glm::vec3(1, 1, 1);
 	T.translation = glm::vec3(0, 0, 0);
-	T.rotation = glm::quat(T.translation); //Lookup over an allocation.
+	T.rotation = glm::quat(glm::vec3(0, 0, 0)); //Lookup over an allocation.
 	activeLOD = 0;
 	isRendered = true;
 }

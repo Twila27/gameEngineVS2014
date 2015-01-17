@@ -52,12 +52,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glm\glm;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Twila27\Dropbox\My Video Game Engine\glm\glm;C:\Users\Twila27\Dropbox\My Video Game Engine\irrKlang\irrKlang-1.5.0\include;C:\Users\Twila27\Dropbox\My Video Game Engine\glfw\glfw-3.0.4.bin.WIN32\include;C:\Users\Twila27\Dropbox\My Video Game Engine\glew\glew-1.10.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\lib\Release\Win32;C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Twila27\Dropbox\My Video Game Engine\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\My Video Game Engine\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\Users\Twila27\Dropbox\My Video Game Engine\glew\glew-1.10.0\lib\Release\Win32;C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3dll.lib;glew32.lib;OpenGL32.lib;irrKlang.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -72,7 +72,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\include;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glm\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Twila27\Dropbox\My Video Game Engine\glm\glm;C:\Users\Twila27\Dropbox\My Video Game Engine\irrKlang\irrKlang-1.5.0\include;C:\Users\Twila27\Dropbox\My Video Game Engine\glew\glew-1.10.0\include;C:\Users\Twila27\Dropbox\My Video Game Engine\glfw\glfw-3.0.4.bin.WIN32\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -80,20 +80,20 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>glfw3dll.lib;glew32.lib;OpenGL32.lib;irrKlang.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glfw\glfw-3.0.4.bin.WIN32\lib-msvc110;C:\Users\Twila27\Dropbox\OSU\Fall 2014\CS4183 - Video Game Design [of Engines]\[Sprint -1] Cline%27s Base\glew\glew-1.10.0\lib\Release\Win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Twila27\Dropbox\My Video Game Engine\irrKlang\irrKlang-1.5.0\lib\Win32-visualStudio;C:\Users\Twila27\Dropbox\My Video Game Engine\glfw\glfw-3.0.4.bin.WIN32\lib-msvc120;C:\Users\Twila27\Dropbox\My Video Game Engine\glew\glew-1.10.0\lib\Release\Win32;C:\Program Files %28x86%29\Windows Kits\8.1\Lib\winv6.3\um\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.cpp" />
-    <ClCompile Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.cpp" />
+    <ClCompile Include="code\SceneState.cpp" />
+    <ClCompile Include="code\Scripts.cpp" />
     <ClCompile Include="code\EngineUtil.cpp" />
     <ClCompile Include="code\lodepng.cpp" />
     <ClCompile Include="code\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\SceneState.h" />
-    <ClInclude Include="..\..\[Sprint -1] Cline%27s Base\gameEngine\code\Scripts.h" />
+    <ClInclude Include="code\SceneState.h" />
+    <ClInclude Include="code\Scripts.h" />
     <ClInclude Include="code\EngineUtil.h" />
     <ClInclude Include="code\lodepng.h" />
   </ItemGroup>
