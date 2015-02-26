@@ -569,6 +569,7 @@ void loadScene(const char *sceneFile)
 	if (gBackgroundMusic) {
 		gBackgroundMusic->stop();
 		gBackgroundMusic->drop();
+		gBackgroundMusic = nullptr;
 	}
 	soundEngine->stopAllSounds();
 
@@ -594,7 +595,7 @@ void loadScene(const char *sceneFile)
 	}
 	fclose(F);
 
-	if (gBackgroundMusic) gBackgroundMusic->setIsPaused(false);
+	if (gBackgroundMusic != nullptr) gBackgroundMusic->setIsPaused(false);
 }
 
 //Console and main loops.
@@ -827,30 +828,6 @@ void update(double dt)
 	}
 
 	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
-
-	/*Examples of how to do transforms, although rotation should be done with quats, e.g. glm::quat r = glm::quat(glm::vec3(0.0f, 0.0051f, 0.00f)); gMeshInstance.T.rotation *= r;
-	if (glfwGetKey(gWindow, GLFW_KEY_R)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.rotation.y += rAmt;
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_F)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->name.find("oNode") != string::npos) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			it->second->T.rotation.y -= rAmt;
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_T)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			//it->second->setTranslation(glm::vec3(0, rAmt, 0));
-			it->second->addTranslation(glm::vec3(0, rAmt, 0));
-	}
-	if (glfwGetKey(gWindow, GLFW_KEY_G)) {
-		for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
-		if (it->second->children.size() > 0) //For all nodes with oNode in the name, slow because strings, but just for funsies and to test all parent-child transforms.
-			//it->second->setTranslation(glm::vec3(0, -rAmt, 0));
-			it->second->addTranslation(glm::vec3(0, -rAmt, 0));
-	}*/
 
 	//Collision detection loop.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
@@ -1493,8 +1470,7 @@ void useConsole(void)
 					iss >> token;
 					if (token == "scene") {
 						cout << "\tPlease enter a property to set from the below:\n";
-						cout << "\t(1) Window Title (2) Window Width (3) Window Height \n\
-								 \t(4) Samples per Pixel (5) Background Color (6) Background Music\n";
+						cout << "\t(1) Window Title (2) Window Width (3) Window Height \n\t(4) Samples per Pixel (5) Background Color (6) Background Music\n";
 						int propertyNum;
 						cin >> propertyNum;
 						switch (propertyNum) {

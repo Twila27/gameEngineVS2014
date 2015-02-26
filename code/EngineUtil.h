@@ -256,8 +256,8 @@ public:
 // DRAWABLES
 class Sprite : public Drawable {
 public:
-	vector<glm::vec4> frames; //Need this list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
-	int frameWidth, frameHeight;
+	vector<glm::vec4> frames; //A list of [x y w h] normalized, (0,0) top-left and (1,1) width-height, UV frames specified.
+	int frameWidth, frameHeight; //These parameters automatically partition the sprite sheet--if you have no frames, look for these being wrong!
 	int sheetWidth, sheetHeight; //Yanked from material->textures[0].
 	int amtRows, amtCols;
 	int animDir; //1 or -1.

@@ -722,6 +722,10 @@ void Drawable::draw(Camera &camera)
 	glUseProgram(material->shaderProgramHandles[material->activeShaderProgram]);
 
 	material->bindMaterial();
+	if (material->name == "sprite") {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 
 	triMesh->draw();
 
