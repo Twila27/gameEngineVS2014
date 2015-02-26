@@ -510,6 +510,11 @@ SceneGraphNode* loadAndReturnNode(FILE *F)
 			getInts(F, &tmpBool, 1);
 			n->isRendered = (bool)tmpBool;
 		}
+		else if (token == "isUpdated") {
+			int tmpBool;
+			getInts(F, &tmpBool, 1);
+			n->isUpdated = (bool)tmpBool;
+		}
 	}
 
 	//Auto-generate the other class members that the parser isn't supplying.
@@ -827,7 +832,7 @@ void update(double dt)
 		loadScene(gSceneFileNames[gActiveScene].c_str());
 	}
 
-	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
+	//for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
 
 	//Collision detection loop.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
@@ -1631,14 +1636,18 @@ void useConsole(void)
 						}
 
 						cout << "\tPlease enter a property to set from the below:\n";
-						cout << "\t(1) isRendered (2) Active Mesh (3) Active Material \n\t(4) Script Property (5) Translation (6) Rotation (7) Scale\n";
+						cout << "\t(0) isRendered (1) isUpdated (2) Active Mesh (3) Active Material \n\t(4) Script Property (5) Translation (6) Rotation (7) Scale\n";
 						int propertyNum;
 						cin >> propertyNum;
 						string name, propVal;
 						switch (propertyNum) {
-							case 1:
+							case 0:
 								cout << "\t0 for hidden, 1 for rendered (Curr: " << gNodes[token]->isRendered << "): "; 
 								cin >> gNodes[token]->isRendered;
+								break;
+							case 1: 
+								cout << "\t0 for not updated, 1 for is updated (Curr: " << gNodes[token]->isUpdated << "): ";
+								cin >> gNodes[token]->isUpdated;
 								break;
 							case 2:
 								cout << "\tEnter the name of a mesh from below:\n";

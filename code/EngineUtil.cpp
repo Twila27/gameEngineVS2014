@@ -764,7 +764,7 @@ SceneGraphNode::SceneGraphNode(void) {
 	T.translation = glm::vec3(0, 0, 0);
 	T.rotation = glm::quat(glm::vec3(0, 0, 0)); //Lookup over an allocation.
 	activeLOD = 0;
-	isRendered = true;
+	isUpdated = isRendered = true;
 }
 SceneGraphNode::~SceneGraphNode(void) {
 	for (auto it = LODstack.begin(); it != LODstack.end(); ++it) delete *it; 
@@ -783,6 +783,8 @@ void SceneGraphNode::setTranslation(const glm::vec3 &t) {
 }
 void SceneGraphNode::update(Camera &camera, double dt) 
 {
+	if (!isUpdated) return;
+
 	//Update transform for self, if there is no parent to update us for ourselves.
 	if (parent == nullptr) T.refreshTransform();
 
@@ -1054,6 +1056,11 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 			translation [0 2 0]
 			scale [1 1 1]	
 		}
+		script name "myScript" {
+			see examples
+		}
+		isRendered 1
+		isUpdated 1
 		translation [-2 0 0]
 		scale [0.5 0.5 0.5]
 	}
@@ -1071,6 +1078,7 @@ void SceneGraphNode::toSDL(FILE *F, int tabAmt) {
 	for (int i = 0; i < children.size(); ++i) children[i]->toSDL(F, tabAmt + 1);
 	for (int i = 0; i < scripts.size(); ++i) scripts[i]->toSDL(F, addTabs(tabAmt + 1));
 	fprintf(F, "\t%sisRendered %d\n", t, isRendered);
+	fprintf(F, "\t%sisUpdated %d\n", t, isUpdated);
 	if (switchingDistances.size() > 0) fprintf(F, "\t%smaxRenderDist %f\n", t, switchingDistances[0]);
 	fprintf(F, "\t%stranslation [%f %f %f]\n", t, T.translation.x, T.translation.y, T.translation.z);
 	fprintf(F, "\t%srotation [%f %f %f]\n", t, T.rotation.x, T.rotation.y, T.rotation.z);

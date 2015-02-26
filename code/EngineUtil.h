@@ -322,6 +322,7 @@ class SceneGraphNode {
 public:
 	string name;
 	bool isRendered;
+	bool isUpdated;
 	int activeLOD;
 	vector<Drawable*> LODstack; //Level of detail stack.
 	vector<float> switchingDistances; //Decreasing order such that [0] is max render threshold.
