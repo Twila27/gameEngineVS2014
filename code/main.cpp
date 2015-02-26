@@ -832,7 +832,7 @@ void update(double dt)
 		loadScene(gSceneFileNames[gActiveScene].c_str());
 	}
 
-	//for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
+	for (auto it = gNodes.cbegin(); it != gNodes.cend(); ++it) it->second->update(*gCameras[gActiveCamera], dt);
 
 	//Collision detection loop.
 	for (auto it = gNodes.begin(); it != gNodes.end(); ++it)
